@@ -1,0 +1,37 @@
+/* Tabs */
+.tabs { display:flex; gap:8px; margin: 0 0 12px 0; flex-wrap: wrap; }
+.tab { padding:8px 12px; border-radius:8px; text-decoration:none; color:#111; background:#f3f4f6; }
+.tab.active { background:#111; color:#fff; }
+
+/* Badge status */
+.badge { display:inline-block; padding:4px 8px; border-radius:999px; font-size:.75rem; font-weight:700; color:#fff; }
+.badge-draft   { background:#6b7280; }
+.badge-sent    { background:#2563eb; }
+.badge-accept  { background:#059669; }
+.badge-confirm { background:#111827; }
+
+/* Form rows */
+.form-row { display:flex; gap:12px; align-items:center; margin-bottom:10px; }
+.form-row label { width:160px; color:#374151; font-weight:600; }
+.form-row input, .form-row textarea { flex:1; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; }
+
+.dash-main svg:not(.logo-svg) {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+/* Khusus pagination bawaan Laravel (nav[role="navigation"]) */
+nav[role="navigation"] svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn svg, .btn-primary svg, .btn-danger svg, button svg {
+  width: 16px;
+  height: 16px;
+}
+.badge-denied {
+  background: #fee2e2;   /* merah muda */
+  color: #991b1b;
+}

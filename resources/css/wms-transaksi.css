@@ -1,0 +1,54 @@
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:960px){.form-grid{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-weight:700;color:#0f172a;font-size:13px}
+.req{color:#ef4444}
+.help{color:#64748b;font-size:12px}
+.input,.select,textarea{
+    height:40px;padding:8px 12px;border:1px solid #0099ff;border-radius:10px;
+    background:#fff;color:#111827;width:100%;
+    transition:border-color .15s, box-shadow .15s;
+    width: 60vh;
+}
+textarea{height:auto;min-height:72px;resize:vertical}
+.input:focus,.select:focus,textarea:focus{
+    outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15)
+}
+.input[disabled]{background:#f3f4f6;color:#111827;cursor:not-allowed}
+
+/* ====== PRODUK TABLE ====== */
+.table.products{border-spacing:0;font-size:14px;width:100%}
+.table.products thead th{
+    position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e5e7eb;
+    padding:10px 12px;color:#64748b;font-size:12.5px;letter-spacing:.02em;text-align:left;z-index:1
+}
+.table.products td{padding:10px 12px;border-bottom:1px solid #f1f5f9}
+.table.products tbody tr:hover{background:#f9fafb}
+.qty-positive{background:#1898e22a}
+.qty-wrap{display:flex;align-items:center;gap:6px}
+.qty-btn{
+    width:28px;height:28px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;
+    display:inline-flex;align-items:center;justify-content:center;font-weight:700;line-height:1;cursor:pointer
+}
+.qty-btn:active{transform:translateY(1px)}
+.qty-input{width:90px;text-align:right}
+
+/* search strip */
+.search-strip{display:flex;gap:8px;align-items:center}
+.search-strip .input{height:38px}
+
+/* ====== STICKY SUMMARY BAR ====== */
+.sticky-cta{
+    position:sticky;bottom:0;background:linear-gradient(180deg,rgba(255,255,255,0),#fff 16%);
+    padding-top:10px;margin-top:12px
+}
+.cta-card{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    border:1px solid #e5e7eb;background:#fff;border-radius:14px;padding:12px 14px;
+    box-shadow:0 10px 30px rgba(15,23,42,.06)
+}
+.metrics{display:flex;gap:16px;flex-wrap:wrap;color:#0f172a}
+.metric{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:8px 10px}
+.metric b{font-variant-numeric:tabular-nums}
+.link{color:#2563eb;font-weight:700}
+.link:hover{text-decoration:underline}

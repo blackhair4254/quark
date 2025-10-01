@@ -1,0 +1,19 @@
+/* --- Alerts --- */
+  .alerts-stack{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+  .alert{
+    position:relative; border-radius:12px; padding:12px 40px 12px 12px; line-height:1.45;
+    box-shadow:0 2px 8px rgba(0,0,0,.05); border:1px solid transparent
+  }
+  .alert .ttl{font-weight:700;margin-bottom:4px}
+  .alert .msg{white-space:pre-line}
+  .alert-ok{background:#ecfdf5;border-color:#10b98133;color:#065f46}
+  .alert-warn{background:#fff7ed;border-color:#f59e0b33;color:#7c2d12}
+  .alert-error{background:#fef2f2;border-color:#ef444433;color:#7f1d1d}
+  .alert-close{
+    position:absolute; right:10px; top:10px; width:28px;height:28px;border-radius:8px;
+    display:inline-grid; place-items:center; border:none; background:#ffffff80; cursor:pointer
+  }
+  .alert-close:hover{background:#ffffff}
+  /* --- Field error (inline di bawah input) --- */
+  .field-error{margin-top:6px;font-size:12px;color:#b91c1c}
+  .is-invalid{outline:2px solid #ef4444!important; background:#fff1f2}
