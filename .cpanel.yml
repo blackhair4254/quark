@@ -1,0 +1,4 @@
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/quarkcoi/public_html
+    - /bin/rsync -a --delete dist/ $DEPLOYPATH/
