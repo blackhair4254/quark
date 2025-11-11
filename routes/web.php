@@ -8,6 +8,7 @@ use App\Http\Controllers\Oms\StockController as OmsStockController;
 use App\Http\Controllers\Oms\TransaksiController as OmsTransaksiController;
 use App\Http\Controllers\OmsStaffController;
 use App\Http\Controllers\ProdukController;
+use App\Http\Controllers\ShopeeAuthController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\TokoController;
 use App\Http\Controllers\TransaksiController;
@@ -23,6 +24,8 @@ Route::get('/', function () {
 Route::get('/wms/login', [WmsLoginController::class, 'show'])->name('wms.login');
 Route::post('/wms/login', [WmsLoginController::class, 'login'])->name('wms.login.post');
 Route::post('/wms/logout', [WmsLoginController::class, 'logout'])->name('wms.logout');
+Route::get('/shopee/get-access-token', [ShopeeAuthController::class, 'getAccessToken']);
+
 
 Route::middleware(['auth','role:wms'])->prefix('wms')->group(function () {
 
@@ -108,6 +111,7 @@ Route::middleware(['auth','role:oms'])->prefix('oms')->group(function () {
     // END STOCK
 
     // START TRANSAKSI
+
     Route::post('transaksi/{transaksi}/to-processing', [OmsTransaksiController::class,'toProcessing'])->name('oms.transaksi.to-processing'); 
     Route::post('transaksi/{transaksi}/to-shipped',    [OmsTransaksiController::class,'toShipped'])->name('oms.transaksi.to-shipped');       
     Route::post('transaksi/{transaksi}/to-done',       [OmsTransaksiController::class,'toDone'])->name('oms.transaksi.to-done');             
