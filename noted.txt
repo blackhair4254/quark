@@ -1,0 +1,3 @@
+akses DB Postgre quark.co.id
+ssh -N -L 55432:127.0.0.1:5432 quarkcoi@quark.co.id -p 64000
+
