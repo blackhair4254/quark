@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
+// {"refresh_token":"48414b536c4f6e497872597767696158","access_token":"586b78775763774b624c514756704651","expire_in":14362,"request_id":"e3e3e7f3434ba8534267df60f6e5d800","merchant_id_list":[],"shop_id_list":[141189773],"supplier_id_list":[],"user_id_list":[],"error":"","message":""}
 class ShopeeAuthController extends Controller
 {
     /**
@@ -14,7 +15,7 @@ class ShopeeAuthController extends Controller
     public function getAccessToken(Request $request)
     {
         // ==== Ambil dari .env (dengan fallback bila perlu) ====
-        $host        = rtrim(env('SHOPEE_HOST', 'https://partner.sandbox.test-stable.shopee.sg'), '/');
+        $host        = rtrim(env('SHOPEE_HOST'));
         $partnerId   = (int) env('SHOPEE_PARTNER_ID');
         $partnerKey  = env('SHOPEE_PARTNER_KEY');
         $defaultCode = env('SHOPEE_CODE');      // bisa diisi dari authorization redirect
