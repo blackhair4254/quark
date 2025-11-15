@@ -25,7 +25,9 @@ Route::get('/wms/login', [WmsLoginController::class, 'show'])->name('wms.login')
 Route::post('/wms/login', [WmsLoginController::class, 'login'])->name('wms.login.post');
 Route::post('/wms/logout', [WmsLoginController::class, 'logout'])->name('wms.logout');
 Route::get('/shopee/get-access-token', [ShopeeAuthController::class, 'getAccessToken']);
-Route::match(['GET','POST'], '/shopee/refresh-access-token', [ShopeeAuthController::class, 'refreshAccessToken']);
+// Route::match(['GET','POST'], '/shopee/refresh-access-token', [ShopeeAuthController::class, 'refreshAccessToken']);
+Route::get('/shopee/get-order-list', [ShopeeAuthController::class, 'getOrderList']);
+
 
 
 
