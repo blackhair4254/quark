@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <title>WMS • Detail Transaksi</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="{{ asset('quark.svg') }}">
+  <link rel="icon" type="image/x-icon" href="{{ asset('quark.svg') }}">
+  <link rel="apple-touch-icon" href="{{ asset('quark.svg') }}">
   @vite('resources/css/wms-produk.css')
   <style>
     .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}

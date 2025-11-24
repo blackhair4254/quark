@@ -5,6 +5,9 @@
     <meta charset="UTF-8" />
     <title>WMS • Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="{{ asset('quark.svg') }}">
+    <link rel="icon" type="image/x-icon" href="{{ asset('quark.svg') }}">
+    <link rel="apple-touch-icon" href="{{ asset('quark.svg') }}">
     @vite('resources/css/wms-dashboard.css')
 </head>
 <body class="dash-body">

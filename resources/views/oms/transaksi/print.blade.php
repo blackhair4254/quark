@@ -2,6 +2,9 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <link rel="icon" type="image/png" href="{{ asset('quark.svg') }}">
+  <link rel="icon" type="image/x-icon" href="{{ asset('quark.svg') }}">
+  <link rel="apple-touch-icon" href="{{ asset('quark.svg') }}">
   <title>Resi #{{ $transaksi->id_transaksi }}</title>
   <style>
     /* style minimal agar rapi saat print */

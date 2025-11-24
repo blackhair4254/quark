@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <title>OMS • Stock</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="{{ asset('quark.svg') }}">
+  <link rel="icon" type="image/x-icon" href="{{ asset('quark.svg') }}">
+  <link rel="apple-touch-icon" href="{{ asset('quark.svg') }}">
   @vite('resources/css/wms-produk.css')
     <style>
         html, body, .dash-layout, .dash-main { overflow-x: hidden; }
