@@ -137,7 +137,7 @@ class ShopeeAuthController extends Controller
         }
 
         // ==== Eksekusi HTTP ====
-        $resp = \Illuminate\Support\Facades\Http::withHeaders(['Content-Type' => 'application/json'])
+        $resp = Http::withHeaders(['Content-Type' => 'application/json'])
             ->timeout(25)
             ->post($url, $body);
 
@@ -178,7 +178,7 @@ class ShopeeAuthController extends Controller
 
 
         // ==== Persist ke DB ====
-        \Illuminate\Support\Facades\DB::transaction(function () use ($row, $newAccess, $newRefresh, $expireIn, $requestId, $error, $message, $accessExpiresAt) {
+        DB::transaction(function () use ($row, $newAccess, $newRefresh, $expireIn, $requestId, $error, $message, $accessExpiresAt) {
             if ($newAccess !== null)       $row->access_token       = $newAccess;
             if ($newRefresh !== null)      $row->refresh_token      = $newRefresh;
             if ($expireIn !== null)        $row->expire_in          = (int) $expireIn;
@@ -282,7 +282,7 @@ class ShopeeAuthController extends Controller
 
         // full URL
         $url = $host . $apiPath;
-
+        
         // panggil Shopee
         try {
             $resp = Http::timeout(30)->get($url, $params);

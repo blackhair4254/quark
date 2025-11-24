@@ -1,3 +1,9 @@
 akses DB Postgre quark.co.id
 ssh -N -L 55432:127.0.0.1:5432 quarkcoi@quark.co.id -p 64000
 
+check git
+git remote -v
+
+update code
+git fetch origin --prune
+git reset --hard origin/main

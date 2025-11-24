@@ -92,7 +92,8 @@
     <nav class="dash-menu">
       <a class="menu-item" href="{{ route('oms.inbound.index') }}">Inbound</a>
       <a class="menu-item active" href="{{ route('oms.stock.index') }}">Stock</a>
-      {{-- Transaksi nanti --}}
+      <a class="menu-item" href="{{ route('oms.transaksi.index') }}">Transaksi OMS</a>
+      <a class="menu-item" href="{{ route('oms.balance_stock.index') }}">Balance Stock</a>
       <form method="POST" action="{{ route('oms.logout') }}" class="logout-form">
         @csrf <button type="submit" class="menu-item logout">Logout</button>
       </form>

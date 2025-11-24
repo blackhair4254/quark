@@ -48,15 +48,20 @@
       </div>
     </div>
     <nav class="dash-menu">
-      <a class="menu-item" href="{{ route('wms.dashboard') }}">Dashboard</a>
-      <a class="menu-item" href="{{ route('wms.transaksi.index') }}">Transaksi</a>
-      <a class="menu-item" href="{{ route('wms.inbound.index') }}">Inbound</a>
-      <a class="menu-item" href="{{ route('wms.stock.index') }}">Stock</a>
-      <a class="menu-item" href="{{ route('wms.produk.index') }}">Produk</a>
+      <a class="menu-item" href="{{ url('/wms/dashboard') }}">Dashboard</a>
+      <a class="menu-item" href="{{ url('/wms/transaksi') }}">Transaksi</a>
+      <a class="menu-item" href="{{ url('/wms/inbound') }}">Inbound</a>
+      <a class="menu-item" href="{{ url('/wms/stock') }}">Stock</a>
+      <a class="menu-item" href="{{ url('/wms/produk') }}">Produk</a>
+      <a class="menu-item" href="{{ route('wms.balance_stock.index') }}">Balance Stock</a>
       <a class="menu-item active" href="{{ route('wms.toko.edit') }}">Atur Toko</a>
       <a class="menu-item" href="{{ route('wms.oms-staff.index') }}">Akun Staff OMS</a>
+      
+
+
       <form method="POST" action="{{ route('wms.logout') }}" class="logout-form">
-        @csrf <button type="submit" class="menu-item logout">Logout</button>
+          @csrf
+          <button type="submit" class="menu-item logout">Logout</button>
       </form>
     </nav>
   </aside>

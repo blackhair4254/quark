@@ -58,13 +58,13 @@ class TransaksiController extends Controller
         $totalNilai = (float) $details->sum('subtotal');
 
         $toko = Toko::where('chain_link', Auth::user()->chain_link)->first();
-
         return view('wms.transaksi.show', [
             'trx'        => $transaksi,
             'details'    => $details,
             'totalNilai' => $totalNilai,
             'toko'       => $toko,
         ]);
+        
     }
 
 

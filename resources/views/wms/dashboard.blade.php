@@ -28,6 +28,7 @@
             <a class="menu-item" href="{{ url('/wms/inbound') }}">Inbound</a>
             <a class="menu-item" href="{{ url('/wms/stock') }}">Stock</a>
             <a class="menu-item" href="{{ url('/wms/produk') }}">Produk</a>
+            <a class="menu-item" href="{{ route('wms.balance_stock.index') }}">Balance Stock</a>
             <a class="menu-item" href="{{ route('wms.toko.edit') }}">Atur Toko</a>
             <a class="menu-item" href="{{ route('wms.oms-staff.index') }}">Akun Staff OMS</a>
             

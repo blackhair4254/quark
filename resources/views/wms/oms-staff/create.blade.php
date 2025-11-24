@@ -24,10 +24,16 @@
       <a class="menu-item" href="{{ url('/wms/transaksi') }}">Transaksi</a>
       <a class="menu-item" href="{{ url('/wms/inbound') }}">Inbound</a>
       <a class="menu-item" href="{{ url('/wms/stock') }}">Stock</a>
-      <a class="menu-item" href="{{ route('wms.produk.index') }}">Produk</a>
+      <a class="menu-item" href="{{ url('/wms/produk') }}">Produk</a>
+      <a class="menu-item" href="{{ route('wms.balance_stock.index') }}">Balance Stock</a>
+      <a class="menu-item" href="{{ route('wms.toko.edit') }}">Atur Toko</a>
       <a class="menu-item active" href="{{ route('wms.oms-staff.index') }}">Akun Staff OMS</a>
+      
+
+
       <form method="POST" action="{{ route('wms.logout') }}" class="logout-form">
-        @csrf <button type="submit" class="menu-item logout">Logout</button>
+          @csrf
+          <button type="submit" class="menu-item logout">Logout</button>
       </form>
     </nav>
   </aside>

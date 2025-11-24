@@ -160,9 +160,6 @@
         <div class="user-email">{{ auth()->user()->email_pengguna ?? '' }}</div>
       </div>
     </div>
-    <nav class="dash-menu">
-      <a class="menu-item" href="{{ route('wms.transaksi.index') }}">&larr; Kembali</a>
-    </nav>
   </aside>
 
   <main class="dash-main">
@@ -227,11 +224,13 @@
     {{-- ACTIONS FOOTER --}}
     <div class="card" style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;align-items:center;">
       {{-- READY: edit & batal langsung --}}
+      <a class="btn" href="{{ route('wms.transaksi.index') }}" id="btnBack">&larr; Kembali</a>
       @if($trx->status==='ready')
         <a class="btn" href="{{ route('wms.transaksi.edit',$trx) }}">Edit</a>
         <form method="POST" action="{{ route('wms.transaksi.cancel',$trx) }}" onsubmit="return confirm('Batalkan transaksi ini?')">
           @csrf <button class="btn-danger">Batalkan</button>
         </form>
+        
       @endif
 
       {{-- PROCESSING: ajukan perubahan / pembatalan --}}
@@ -245,9 +244,6 @@
           @csrf <button class="btn">Ajukan Pembatalan</button>
         </form>
 
-        <form method="POST" action="{{ route('wms.transaksi.to-shipped',$trx) }}" onsubmit="return confirm('Tandai sebagai DIKIRIM?')">
-          @csrf <button class="btn-primary">Tandai Dikirim</button>
-        </form>
       @endif
 
       {{-- SHIPPED: boleh tandai selesai --}}
@@ -332,7 +328,7 @@
             <div class="to-name">{{ strtoupper($trx->nama_penerima) }}</div>
           </div>
           <div class="right-contact">
-            {{ $toko->no_telp ? $toko->no_telp : $trx->no_telp_pengirim }}<br>
+            {{ $trx->no_telp_pengirim }}<br>
             {{ $toko->email ?? '' }}<br>
             {{ $alamatToko }}<br>
             {{ $toko->negara ?? 'Indonesia' }}

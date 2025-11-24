@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\OmsLoginController;
 use App\Http\Controllers\Auth\WmsLoginController;
 use App\Http\Controllers\InboundController;
+use App\Http\Controllers\Oms\BalanceStockController as OmsBalanceStockController;
 use App\Http\Controllers\Oms\OmsInboundController;
 use App\Http\Controllers\Oms\StockController as OmsStockController;
 use App\Http\Controllers\Oms\TransaksiController as OmsTransaksiController;
@@ -12,6 +13,7 @@ use App\Http\Controllers\ShopeeAuthController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\TokoController;
 use App\Http\Controllers\TransaksiController;
+use App\Http\Controllers\Wms\BalanceStockController;
 use App\Models\Produk;
 use Illuminate\Support\Facades\Route;
 
@@ -82,6 +84,13 @@ Route::middleware(['auth','role:wms'])->prefix('wms')->group(function () {
     Route::post('transaksi/{transaksi}/to-done',    [TransaksiController::class,'toDone'])->name('wms.transaksi.to-done');       
     // END TRANSAKSI
 
+    // START BALANCE STOCK
+    Route::get('balance-stock',          [BalanceStockController::class, 'index'])->name('wms.balance_stock.index');
+    Route::get('balance-stock/{h}',      [BalanceStockController::class, 'show'])->name('wms.balance_stock.show');
+    Route::post('balance-stock/{h}/approve', [BalanceStockController::class, 'approve'])->name('wms.balance_stock.approve');
+    Route::post('balance-stock/{h}/reject',  [BalanceStockController::class, 'reject'])->name('wms.balance_stock.reject');
+    // END BALANCE STOCK
+
     // START TOKO
     Route::get('toko',  [TokoController::class, 'edit'])->name('wms.toko.edit');
     Route::put('toko',  [TokoController::class, 'update'])->name('wms.toko.update');
@@ -102,7 +111,6 @@ Route::middleware(['auth','role:oms'])->prefix('oms')->group(function () {
     
     // START INBOUND
     Route::get('inbound', [OmsInboundController::class, 'index'])->name('oms.inbound.index');
-
     Route::post('inbound/{inbound}/accept',  [OmsInboundController::class, 'accept'])
         ->name('oms.inbound.accept');
     Route::post('inbound/{inbound}/confirm', [OmsInboundController::class, 'confirm'])
@@ -115,15 +123,26 @@ Route::middleware(['auth','role:oms'])->prefix('oms')->group(function () {
     // END STOCK
 
     // START TRANSAKSI
-
-    Route::post('transaksi/{transaksi}/to-processing', [OmsTransaksiController::class,'toProcessing'])->name('oms.transaksi.to-processing'); 
-    Route::post('transaksi/{transaksi}/to-shipped',    [OmsTransaksiController::class,'toShipped'])->name('oms.transaksi.to-shipped');       
-    Route::post('transaksi/{transaksi}/to-done',       [OmsTransaksiController::class,'toDone'])->name('oms.transaksi.to-done');             
-
-    // konfirmasi permintaan dari WMS
-    Route::post('transaksi/{transaksi}/approve-edit',   [OmsTransaksiController::class,'approveEdit'])->name('oms.transaksi.approve-edit');
-    Route::post('transaksi/{transaksi}/approve-cancel', [OmsTransaksiController::class,'approveCancel'])->name('oms.transaksi.approve-cancel');
-    Route::post('transaksi/{transaksi}/reject-request', [OmsTransaksiController::class,'rejectRequest'])->name('oms.transaksi.reject-request');
+   // List & detail (read-only untuk 'new')
+    Route::get('transaksi', [OmsTransaksiController::class, 'index'])->name('oms.transaksi.index');
+    Route::get('transaksi/{transaksi}', [OmsTransaksiController::class, 'show'])->name('oms.transaksi.show');
+    // aksi status (sudah ada di controllermu but re-route under oms)
+    Route::post('transaksi/{transaksi}/to-processing', [OmsTransaksiController::class,'toProcessing'])->name('oms.transaksi.to-processing');
+    Route::post('transaksi/{transaksi}/to-shipped',    [OmsTransaksiController::class,'toShipped'])->name('oms.transaksi.to-shipped');
+    Route::post('transaksi/{transaksi}/to-done',       [OmsTransaksiController::class,'toDone'])->name('oms.transaksi.to-done');
+    Route::post('transaksi/{transaksi}/to-cancel',       [OmsTransaksiController::class,'toCancel'])->name('oms.transaksi.to-cancel');
+    // Cetak resi single & massal
+    Route::get('transaksi/{transaksi}/print-resi', [OmsTransaksiController::class, 'printResi'])->name('oms.transaksi.print-resi');
+    Route::post('transaksi/print-resi-mass', [OmsTransaksiController::class, 'printResiMass'])->name('oms.transaksi.print-resi-mass');
     // END TRANSAKSI
+
+    // START BALANCE STOCK
+    Route::get('balance-stock',            [OmsBalanceStockController::class, 'index'])->name('oms.balance_stock.index');
+    Route::get('balance-stock/create',     [OmsBalanceStockController::class, 'create'])->name('oms.balance_stock.create');
+    Route::post('balance-stock',           [OmsBalanceStockController::class, 'store'])->name('oms.balance_stock.store');
+    Route::get('balance-stock/{h}',        [OmsBalanceStockController::class, 'show'])->name('oms.balance_stock.show');
+    Route::get('balance-stock/{h}/edit',   [OmsBalanceStockController::class, 'edit'])->name('oms.balance_stock.edit');
+    Route::put('balance-stock/{h}',        [OmsBalanceStockController::class, 'update'])->name('oms.balance_stock.update');   
+    // END BALANCE STOCK
 
 });
