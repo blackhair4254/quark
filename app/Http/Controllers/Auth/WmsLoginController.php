@@ -28,7 +28,7 @@ class WmsLoginController extends Controller
         // throttle key: email + IP
         $key = Str::lower($r->input('email')).'|'.$r->ip();
 
-        if (RateLimiter::tooManyAttempts($key, 5)) {
+        if (RateLimiter::tooManyAttempts($key, 10)) {
             $seconds = RateLimiter::availableIn($key);
             return back()
                 ->withErrors(['email' => "Terlalu banyak percobaan. Coba lagi dalam {$seconds} detik."])

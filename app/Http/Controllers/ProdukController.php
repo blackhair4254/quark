@@ -136,7 +136,7 @@ class ProdukController extends Controller
     }
     public function bulkDestroy(Request $r)
     {
-        $chain = auth()->user()->chain_link;
+        $chain = Auth::user()->chain_link;
 
         $data = $r->validate([
             'ids'   => 'required|array|min:1',

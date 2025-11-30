@@ -253,7 +253,7 @@ class ShopeeAuthController extends Controller
 
         // ambil optional params dari query (dengan default)
         $timeRangeField = $request->query('time_range_field', 'create_time');
-        $pageSize = (int) $request->query('page_size', 20);
+        $pageSize = (int) $request->query('page_size', 100);
         $cursor = $request->query('cursor', ''); // kosong string default
         $orderStatus = $request->query('order_status', null);
         $responseOptionalFields = $request->query('response_optional_fields', null);
