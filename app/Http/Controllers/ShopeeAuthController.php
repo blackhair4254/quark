@@ -308,4 +308,93 @@ class ShopeeAuthController extends Controller
         ], $status);
     }
 
+    public function getOrderDetail(Request $request)
+    {
+        $host       = rtrim(env('SHOPEE_HOST'), '/');
+        $partnerId  = (int) env('SHOPEE_PARTNER_ID');
+        $partnerKey = env('SHOPEE_PARTNER_KEY');
+
+        // shop_id prioritas dari query, kalau kosong ambil dari env
+        $shopId = (int) $request->query('shop_id', (int) env('SHOPEE_SHOP_ID'));
+
+        // order_sn_list WAJIB, format: 2512018FY1VD59,2512018FYTP3P0
+        $orderSnList = trim((string) $request->query('order_sn_list', ''));
+
+        if (!$partnerId || !$partnerKey || !$shopId || $orderSnList === '') {
+            return response()->json([
+                'error'   => 'missing_param',
+                'message' => 'Wajib: SHOPEE_PARTNER_ID, SHOPEE_PARTNER_KEY, shop_id dan order_sn_list (dipisah koma).',
+            ], 400);
+        }
+
+        // dapatkan access_token dari DB
+        $tokenRow = ShopeeApiv2Token::where('shop_id', $shopId)
+            ->orderByDesc('updated_at')
+            ->first();
+
+        if (!$tokenRow || empty($tokenRow->access_token)) {
+            return response()->json([
+                'error'   => 'no_access_token',
+                'message' => "Tidak menemukan access_token untuk shop_id={$shopId} di tabel shopee_apiv2_tokens.",
+            ], 404);
+        }
+        $accessToken = (string) $tokenRow->access_token;
+
+        // endpoint & signature
+        $apiPath   = '/api/v2/order/get_order_detail';
+        $timestamp = time();
+
+        // base_string = partner_id + api_path + timestamp + access_token + shop_id
+        $baseString = $partnerId . $apiPath . $timestamp . $accessToken . $shopId;
+        $sign       = hash_hmac('sha256', $baseString, $partnerKey);
+
+        $url = $host . $apiPath;
+
+        // parameter wajib
+        $params = [
+            'partner_id'    => $partnerId,
+            'timestamp'     => $timestamp,
+            'shop_id'       => $shopId,
+            'access_token'  => $accessToken,
+            'sign'          => $sign,
+            'order_sn_list' => $orderSnList,
+        ];
+
+        // optional: request_order_status_pending (bool) & response_optional_fields (string)
+        if ($request->has('request_order_status_pending')) {
+            // konversi ke bool true/false
+            $params['request_order_status_pending'] = filter_var(
+                $request->query('request_order_status_pending'),
+                FILTER_VALIDATE_BOOLEAN,
+                FILTER_NULL_ON_FAILURE
+            );
+        }
+
+        if ($fields = $request->query('response_optional_fields')) {
+            $params['response_optional_fields'] = $fields;
+        }
+
+        try {
+            $resp = Http::timeout(30)->get($url, $params);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error'   => 'http_error',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+
+        $status = $resp->status();
+        $body   = $resp->body();
+
+        return response()->json([
+            'http_status' => $status,
+            'requested'   => [
+                'url'    => $url . '?' . http_build_query($params),
+                'params' => $params,
+            ],
+            'raw_response' => json_decode($body, true),
+        ], $status);
+    }
+
+
 }

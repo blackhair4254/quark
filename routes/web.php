@@ -29,6 +29,7 @@ Route::post('/wms/logout', [WmsLoginController::class, 'logout'])->name('wms.log
 Route::get('/shopee/get-access-token', [ShopeeAuthController::class, 'getAccessToken']);
 // Route::match(['GET','POST'], '/shopee/refresh-access-token', [ShopeeAuthController::class, 'refreshAccessToken']);
 Route::get('/shopee/get-order-list', [ShopeeAuthController::class, 'getOrderList']);
+Route::get('/shopee/get-order-detail', [ShopeeAuthController::class, 'getOrderDetail']);
 
 
 
