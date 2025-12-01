@@ -210,104 +210,6 @@ class ShopeeAuthController extends Controller
             'raw_response' => $json,
         ], $status);
     }
-    public function getOrderList(Request $request)
-    {
-        $host         = rtrim(env('SHOPEE_HOST'), '/');
-        $partnerId  = (int) env('SHOPEE_PARTNER_ID');
-        $partnerKey = env('SHOPEE_PARTNER_KEY');
-
-        // ambil shop_id yang diinginkan: prioritas query ?shop_id lalu env
-        $shopId = (int) $request->query('shop_id', (int) env('SHOPEE_SHOP_ID'));
-
-        if (!$partnerId || !$partnerKey || !$shopId) {
-            return response()->json([
-                'error' => 'missing_param',
-                'message' => 'Pastikan SHOPEE_PARTNER_ID, SHOPEE_PARTNER_KEY, dan shop_id tersedia (env atau query).'
-            ], 400);
-        }
-
-        // ambil access_token dari DB (paling recent untuk shop_id)
-        $tokenRow = ShopeeApiv2Token::where('shop_id', $shopId)
-                    ->orderByDesc('updated_at')
-                    ->first();
-
-        if (!$tokenRow || empty($tokenRow->access_token)) {
-            return response()->json([
-                'error' => 'no_access_token',
-                'message' => "Tidak menemukan access_token untuk shop_id={$shopId} di tabel shopee_apiv2_tokens."
-            ], 404);
-        }
-        $accessToken = (string) $tokenRow->access_token;
-
-        // path & timestamp
-        $apiPath = '/api/v2/order/get_order_list';
-        $timestamp = time(); // detik UTC
-
-        // signature: partner_id + api_path + timestamp + access_token + shop_id
-        $baseString = $partnerId . $apiPath . $timestamp . $accessToken . $shopId;
-        $sign = hash_hmac('sha256', $baseString, $partnerKey);
-
-        // time_to = now, time_from = now - 15 days (max range 15 days per docs)
-        $timeTo = Carbon::now()->timestamp;
-        $timeFrom = Carbon::now()->subDays(15)->timestamp;
-
-        // ambil optional params dari query (dengan default)
-        $timeRangeField = $request->query('time_range_field', 'create_time');
-        $pageSize = (int) $request->query('page_size', 100);
-        $cursor = $request->query('cursor', ''); // kosong string default
-        $orderStatus = $request->query('order_status', 'PROCESSED');
-        $responseOptionalFields = $request->query('response_optional_fields', null);
-        $requestOrderStatusPending = $request->query('request_order_status_pending', null); // boolean or null
-        $logisticsChannelId = $request->query('logistics_channel_id', null);
-
-        // build query params (common params + request params)
-        $params = [
-            'partner_id' => $partnerId,
-            'timestamp'  => $timestamp,
-            'shop_id'    => $shopId,
-            'access_token'=> $accessToken,
-            'sign'       => $sign,
-            'time_range_field' => $timeRangeField,
-            'time_from'  => $timeFrom,
-            'time_to'    => $timeTo,
-            'page_size'  => $pageSize,
-        ];
-
-        // optional append jika ada
-        if ($cursor !== '') $params['cursor'] = $cursor;
-        if (!is_null($orderStatus)) $params['order_status'] = $orderStatus;
-        if (!is_null($responseOptionalFields)) $params['response_optional_fields'] = $responseOptionalFields;
-        if (!is_null($requestOrderStatusPending)) $params['request_order_status_pending'] = $requestOrderStatusPending;
-        if (!is_null($logisticsChannelId)) $params['logistics_channel_id'] = (int) $logisticsChannelId;
-
-        // full URL
-        $url = $host . $apiPath;
-        
-        // panggil Shopee
-        try {
-            $resp = Http::timeout(30)->get($url, $params);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'http_error',
-                'message' => $e->getMessage()
-            ], 500);
-        }
-
-        // kembalikan response asli dari Shopee
-        $status = $resp->status();
-        $body = $resp->body();
-
-        // juga return metadata request yang dibuat agar mudah debug
-        return response()->json([
-            'http_status' => $status,
-            'requested' => [
-                'url' => $url . '?' . http_build_query($params),
-                'params' => $params,
-            ],
-            'raw_response' => json_decode($body, true),
-        ], $status);
-    }
-
     public function getOrderDetail(Request $request)
     {
         $host       = rtrim(env('SHOPEE_HOST'), '/');
@@ -317,17 +219,15 @@ class ShopeeAuthController extends Controller
         // shop_id prioritas dari query, kalau kosong ambil dari env
         $shopId = (int) $request->query('shop_id', (int) env('SHOPEE_SHOP_ID'));
 
-        // order_sn_list WAJIB, format: 2512018FY1VD59,2512018FYTP3P0
-        $orderSnList = trim((string) $request->query('order_sn_list', ''));
-
-        if (!$partnerId || !$partnerKey || !$shopId || $orderSnList === '') {
+        if (!$partnerId || !$partnerKey || !$shopId) {
             return response()->json([
                 'error'   => 'missing_param',
-                'message' => 'Wajib: SHOPEE_PARTNER_ID, SHOPEE_PARTNER_KEY, shop_id dan order_sn_list (dipisah koma).',
+                'message' => 'Wajib: SHOPEE_PARTNER_ID, SHOPEE_PARTNER_KEY, dan shop_id.',
             ], 400);
         }
 
-        // dapatkan access_token dari DB
+        // ambil access_token dari DB (ini tetap dari DB ya, yang dimaksud "bukan DB"
+        // di sini adalah sumber order_sn_list-nya, bukan tokennya)
         $tokenRow = ShopeeApiv2Token::where('shop_id', $shopId)
             ->orderByDesc('updated_at')
             ->first();
@@ -340,30 +240,138 @@ class ShopeeAuthController extends Controller
         }
         $accessToken = (string) $tokenRow->access_token;
 
-        // endpoint & signature
-        $apiPath   = '/api/v2/order/get_order_detail';
-        $timestamp = time();
+        // ===== 1) Cek apakah client kirim order_sn_list manual =====
+        $orderSnList = trim((string) $request->query('order_sn_list', ''));
+
+        // ===== 2) Kalau TIDAK, ambil dulu dari Shopee get_order_list =====
+        $listMeta = null;
+        if ($orderSnList === '') {
+
+            $apiPathList = '/api/v2/order/get_order_list';
+            $timestampList = time();
+
+            // base_string = partner_id + api_path + timestamp + access_token + shop_id
+            $baseStringList = $partnerId . $apiPathList . $timestampList . $accessToken . $shopId;
+            $signList       = hash_hmac('sha256', $baseStringList, $partnerKey);
+
+            // default range 15 hari ke belakang, sama seperti getOrderList()
+            $timeTo   = Carbon::now()->timestamp;
+            $timeFrom = Carbon::now()->subDays(15)->timestamp;
+
+            // ambil optional params dari query (re-use dari getOrderList)
+            $timeRangeField           = $request->query('time_range_field', 'create_time');
+            $pageSize                 = (int) $request->query('page_size', 50); // max 50 order_sn per Shopee
+            if ($pageSize > 50) $pageSize = 50; // safety
+            $cursor                   = $request->query('cursor', '');
+            $orderStatus              = $request->query('order_status', 'PROCESSED');
+            $requestOrderStatusPending = $request->query('request_order_status_pending', null);
+            $responseOptionalFieldsList = $request->query('list_response_optional_fields', null);
+            $logisticsChannelId       = $request->query('logistics_channel_id', null);
+
+            $paramsList = [
+                'partner_id'       => $partnerId,
+                'timestamp'        => $timestampList,
+                'shop_id'          => $shopId,
+                'access_token'     => $accessToken,
+                'sign'             => $signList,
+                'time_range_field' => $timeRangeField,
+                'time_from'        => $timeFrom,
+                'time_to'          => $timeTo,
+                'page_size'        => $pageSize,
+            ];
+
+            if ($cursor !== '')                    $paramsList['cursor'] = $cursor;
+            if (!is_null($orderStatus))            $paramsList['order_status'] = $orderStatus;
+            if (!is_null($requestOrderStatusPending)) $paramsList['request_order_status_pending'] = $requestOrderStatusPending;
+            if (!is_null($responseOptionalFieldsList)) $paramsList['response_optional_fields'] = $responseOptionalFieldsList;
+            if (!is_null($logisticsChannelId))     $paramsList['logistics_channel_id'] = (int) $logisticsChannelId;
+
+            try {
+                $respList = Http::timeout(30)->get($host . $apiPathList, $paramsList);
+            } catch (\Exception $e) {
+                return response()->json([
+                    'error'   => 'http_error',
+                    'message' => 'Gagal memanggil get_order_list: ' . $e->getMessage(),
+                ], 500);
+            }
+
+            $statusList = $respList->status();
+            $jsonList   = $respList->json();
+
+            if (!is_array($jsonList)) {
+                return response()->json([
+                    'error'   => 'invalid_response',
+                    'message' => 'Respons get_order_list bukan JSON.',
+                    'raw'     => $respList->body(),
+                ], $statusList ?: 500);
+            }
+
+            if (!empty($jsonList['error'])) {
+                // jika Shopee balikin error, kirim balik ke client
+                return response()->json([
+                    'error'        => $jsonList['error'],
+                    'message'      => $jsonList['message'] ?? 'Shopee error pada get_order_list.',
+                    'raw_response' => $jsonList,
+                ], $statusList ?: 500);
+            }
+
+            $orderList = Arr::get($jsonList, 'response.order_list', []);
+            if (empty($orderList)) {
+                return response()->json([
+                    'error'   => 'no_orders',
+                    'message' => 'Tidak ada order yang ditemukan dari get_order_list.',
+                    'raw_response' => $jsonList,
+                ], 404);
+            }
+
+            // Ambil hanya field order_sn, maksimum 50
+            $orderSns = collect($orderList)
+                ->pluck('order_sn')
+                ->filter()
+                ->values()
+                ->all();
+
+            if (empty($orderSns)) {
+                return response()->json([
+                    'error'   => 'no_order_sn',
+                    'message' => 'get_order_list tidak mengembalikan order_sn yang valid.',
+                    'raw_response' => $jsonList,
+                ], 404);
+            }
+
+            $orderSns = array_slice($orderSns, 0, 50); // jaga-jaga, limit API 1–50
+            $orderSnList = implode(',', $orderSns);
+
+            // simpan meta panggilan list buat debugging (opsional)
+            $listMeta = [
+                'url'          => $host . $apiPathList . '?' . http_build_query($paramsList),
+                'params'       => $paramsList,
+                'raw_response' => $jsonList,
+            ];
+        }
+
+        // ===== 3) Panggil Shopee get_order_detail dengan orderSnList yang sudah pasti terisi =====
+        $apiPathDetail = '/api/v2/order/get_order_detail';
+        $timestampDetail = time();
 
         // base_string = partner_id + api_path + timestamp + access_token + shop_id
-        $baseString = $partnerId . $apiPath . $timestamp . $accessToken . $shopId;
-        $sign       = hash_hmac('sha256', $baseString, $partnerKey);
+        $baseStringDetail = $partnerId . $apiPathDetail . $timestampDetail . $accessToken . $shopId;
+        $signDetail       = hash_hmac('sha256', $baseStringDetail, $partnerKey);
 
-        $url = $host . $apiPath;
+        $urlDetail = $host . $apiPathDetail;
 
-        // parameter wajib
-        $params = [
+        $paramsDetail = [
             'partner_id'    => $partnerId,
-            'timestamp'     => $timestamp,
+            'timestamp'     => $timestampDetail,
             'shop_id'       => $shopId,
             'access_token'  => $accessToken,
-            'sign'          => $sign,
+            'sign'          => $signDetail,
             'order_sn_list' => $orderSnList,
         ];
 
         // optional: request_order_status_pending (bool) & response_optional_fields (string)
         if ($request->has('request_order_status_pending')) {
-            // konversi ke bool true/false
-            $params['request_order_status_pending'] = filter_var(
+            $paramsDetail['request_order_status_pending'] = filter_var(
                 $request->query('request_order_status_pending'),
                 FILTER_VALIDATE_BOOLEAN,
                 FILTER_NULL_ON_FAILURE
@@ -371,29 +379,30 @@ class ShopeeAuthController extends Controller
         }
 
         if ($fields = $request->query('response_optional_fields')) {
-            $params['response_optional_fields'] = $fields;
+            $paramsDetail['response_optional_fields'] = $fields;
         }
 
         try {
-            $resp = Http::timeout(30)->get($url, $params);
+            $respDetail = Http::timeout(30)->get($urlDetail, $paramsDetail);
         } catch (\Exception $e) {
             return response()->json([
                 'error'   => 'http_error',
-                'message' => $e->getMessage(),
+                'message' => 'Gagal memanggil get_order_detail: ' . $e->getMessage(),
             ], 500);
         }
 
-        $status = $resp->status();
-        $body   = $resp->body();
+        $statusDetail = $respDetail->status();
+        $jsonDetail   = $respDetail->json();
 
         return response()->json([
-            'http_status' => $status,
-            'requested'   => [
-                'url'    => $url . '?' . http_build_query($params),
-                'params' => $params,
+            'http_status'      => $statusDetail,
+            'requested_list'   => $listMeta, // bisa null kalau order_sn_list dikirim manual
+            'requested_detail' => [
+                'url'    => $urlDetail . '?' . http_build_query($paramsDetail),
+                'params' => $paramsDetail,
             ],
-            'raw_response' => json_decode($body, true),
-        ], $status);
+            'raw_response' => $jsonDetail,
+        ], $statusDetail);
     }
 
 
