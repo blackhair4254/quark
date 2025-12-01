@@ -7,3 +7,6 @@ git remote -v
 update code
 git fetch origin --prune
 git reset --hard origin/main
+
+akses terminal server
+ssh -p 64000 quarkcoi@192.53.117.183
