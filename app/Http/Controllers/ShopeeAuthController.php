@@ -255,7 +255,7 @@ class ShopeeAuthController extends Controller
         $timeRangeField = $request->query('time_range_field', 'create_time');
         $pageSize = (int) $request->query('page_size', 100);
         $cursor = $request->query('cursor', ''); // kosong string default
-        $orderStatus = $request->query('', null);
+        $orderStatus = $request->query('order_status', 'READY_TO_SHIP');
         $responseOptionalFields = $request->query('response_optional_fields', null);
         $requestOrderStatusPending = $request->query('request_order_status_pending', null); // boolean or null
         $logisticsChannelId = $request->query('logistics_channel_id', null);
@@ -296,17 +296,16 @@ class ShopeeAuthController extends Controller
         // kembalikan response asli dari Shopee
         $status = $resp->status();
         $body = $resp->body();
-        dd($status,$body);
 
         // juga return metadata request yang dibuat agar mudah debug
-        // return response()->json([
-        //     'http_status' => $status,
-        //     'requested' => [
-        //         'url' => $url . '?' . http_build_query($params),
-        //         'params' => $params,
-        //     ],
-        //     'raw_response' => json_decode($body, true),
-        // ], $status);
+        return response()->json([
+            'http_status' => $status,
+            'requested' => [
+                'url' => $url . '?' . http_build_query($params),
+                'params' => $params,
+            ],
+            'raw_response' => json_decode($body, true),
+        ], $status);
     }
 
 }
