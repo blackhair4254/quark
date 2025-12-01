@@ -479,5 +479,105 @@ class ShopeeAuthController extends Controller
             ],
         ], $statusReturn);
     }
+    public function getBuyerInvoiceInfoTest(Request $request)
+    {
+        $host       = rtrim(env('SHOPEE_HOST'), '/');
+        $partnerId  = (int) env('SHOPEE_PARTNER_ID');
+        $partnerKey = env('SHOPEE_PARTNER_KEY');
+        $shopId     = (int) $request->query('shop_id', (int) env('SHOPEE_SHOP_ID'));
+
+        if (!$partnerId || !$partnerKey || !$shopId) {
+            return response()->json([
+                'error'   => 'missing_param',
+                'message' => 'Wajib: SHOPEE_PARTNER_ID, SHOPEE_PARTNER_KEY, dan shop_id (env atau ?shop_id=...).',
+            ], 400);
+        }
+
+        // Ambil access_token dari DB seperti biasa
+        $tokenRow = ShopeeApiv2Token::where('shop_id', $shopId)
+            ->orderByDesc('updated_at')
+            ->first();
+
+        if (!$tokenRow || empty($tokenRow->access_token)) {
+            return response()->json([
+                'error'   => 'no_access_token',
+                'message' => "Tidak menemukan access_token untuk shop_id={$shopId} di tabel shopee_apiv2_tokens.",
+            ], 404);
+        }
+        $accessToken = (string) $tokenRow->access_token;
+
+        // ===== Ambil order_sn dari input (BUKAN dari DB / API lain) =====
+        // Bisa kirim:
+        //  - ?order_sn=220314U0G6UNMN
+        //  - atau body JSON: { "order_sn": "..." }
+        //  - atau order_sn_list: "sn1,sn2,sn3" -> akan jadi banyak queries
+        $orderSn     = trim((string) $request->input('order_sn', $request->query('order_sn', '2512018HTFJNDC')));
+        $orderSnList = trim((string) $request->input('order_sn_list', $request->query('order_sn_list', '2512018HTFJNDC')));
+
+        $queries = [];
+
+        if ($orderSnList !== '') {
+            $sns = array_filter(array_map('trim', explode(',', $orderSnList)));
+            foreach ($sns as $sn) {
+                if ($sn !== '') {
+                    $queries[] = ['order_sn' => $sn];
+                }
+            }
+        } elseif ($orderSn !== '') {
+            $queries[] = ['order_sn' => $orderSn];
+        }
+
+        if (empty($queries)) {
+            return response()->json([
+                'error'   => 'missing_order_sn',
+                'message' => 'Kirim minimal satu order_sn via ?order_sn=... atau order_sn_list=sn1,sn2.',
+            ], 400);
+        }
+
+        // ===== Build signature & URL =====
+        $apiPath   = '/api/v2/order/get_buyer_invoice_info';
+        $timestamp = time();
+
+        // base_string = partner_id + api_path + timestamp + access_token + shop_id
+        $baseString = $partnerId . $apiPath . $timestamp . $accessToken . $shopId;
+        $sign       = hash_hmac('sha256', $baseString, $partnerKey);
+
+        // sesuai contoh curl: common params di query string
+        $url = $host . $apiPath
+            . '?partner_id=' . $partnerId
+            . '&sign=' . $sign
+            . '&access_token=' . urlencode($accessToken)
+            . '&timestamp=' . $timestamp
+            . '&shop_id=' . $shopId;
+
+        $body = [
+            'queries' => $queries,
+        ];
+
+        try {
+            $resp = Http::withHeaders([
+                    'Content-Type' => 'application/json',
+                ])
+                ->timeout(30)
+                ->post($url, $body);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error'   => 'http_error',
+                'message' => 'Gagal memanggil get_buyer_invoice_info: ' . $e->getMessage(),
+            ], 500);
+        }
+
+        $status = $resp->status();
+        $json   = $resp->json();
+
+        return response()->json([
+            'http_status' => $status,
+            'requested'   => [
+                'url'  => $url,
+                'body' => $body,
+            ],
+            'raw_response' => $json,
+        ], $status);
+    }
 
 }
