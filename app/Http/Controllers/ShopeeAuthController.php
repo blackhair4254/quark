@@ -296,16 +296,17 @@ class ShopeeAuthController extends Controller
         // kembalikan response asli dari Shopee
         $status = $resp->status();
         $body = $resp->body();
+        dd($status,$body);
 
         // juga return metadata request yang dibuat agar mudah debug
-        return response()->json([
-            'http_status' => $status,
-            'requested' => [
-                'url' => $url . '?' . http_build_query($params),
-                'params' => $params,
-            ],
-            'raw_response' => json_decode($body, true),
-        ], $status);
+        // return response()->json([
+        //     'http_status' => $status,
+        //     'requested' => [
+        //         'url' => $url . '?' . http_build_query($params),
+        //         'params' => $params,
+        //     ],
+        //     'raw_response' => json_decode($body, true),
+        // ], $status);
     }
 
 }
