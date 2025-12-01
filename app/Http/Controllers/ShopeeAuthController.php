@@ -256,6 +256,7 @@ class ShopeeAuthController extends Controller
         $pageSize = (int) $request->query('page_size', 100);
         $cursor = $request->query('cursor', ''); // kosong string default
         $orderStatus = $request->query('order_status', null);
+        dd($orderStatus);
         $responseOptionalFields = $request->query('response_optional_fields', null);
         $requestOrderStatusPending = $request->query('request_order_status_pending', null); // boolean or null
         $logisticsChannelId = $request->query('logistics_channel_id', null);
