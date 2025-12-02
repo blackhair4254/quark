@@ -28,8 +28,6 @@ Route::post('/wms/login', [WmsLoginController::class, 'login'])->name('wms.login
 Route::post('/wms/logout', [WmsLoginController::class, 'logout'])->name('wms.logout');
 Route::get('/shopee/get-access-token', [ShopeeAuthController::class, 'getAccessToken']);
 // Route::match(['GET','POST'], '/shopee/refresh-access-token', [ShopeeAuthController::class, 'refreshAccessToken']);
-Route::get('/shopee/get-order-list', [ShopeeAuthController::class, 'getOrderList']);
-Route::get('/shopee/get-order-detail', [ShopeeAuthController::class, 'getOrderDetail']);
 
 
 
@@ -98,6 +96,13 @@ Route::middleware(['auth','role:wms'])->prefix('wms')->group(function () {
     Route::put('toko',  [TokoController::class, 'update'])->name('wms.toko.update');
     Route::delete('toko/logo', [TokoController::class, 'destroyLogo'])->name('wms.toko.logo.destroy');
     // END TOKO
+
+
+    // SHOPEE API
+    Route::get('/shopee/get-order-list', [ShopeeAuthController::class, 'getOrderList']);
+    Route::get('/shopee/get-order-detail', [ShopeeAuthController::class, 'getOrderDetail']);
+
+    // END SHOPEE API
 });
 
 // END WMS
