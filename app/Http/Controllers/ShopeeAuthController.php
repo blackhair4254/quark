@@ -298,7 +298,7 @@ class ShopeeAuthController extends Controller
             $requestOrderStatusPending = $request->query('request_order_status_pending', null);
             $responseOptionalFieldsList = $request->query('list_response_optional_fields', null);
             $logisticsChannelId        = $request->query('logistics_channel_id', null);
-
+            dd($orderStatus);
             $paramsList = [
                 'partner_id'       => $partnerId,
                 'timestamp'        => $timestampList,
