@@ -290,7 +290,7 @@ class ShopeeAuthController extends Controller
             $signList       = hash_hmac('sha256', $baseStringList, $partnerKey);
 
             // default order_status: READY_TO_SHIP (bisa override via query)
-            $orderStatus = $request->query('order_status', 'READY_TO_SHIP');
+            $orderStatus = $request->query('order_status', 'PROCESSED');
 
             $timeRangeField            = $request->query('time_range_field', 'create_time');
             $pageSize                  = (int) $request->query('page_size', 100);
@@ -298,7 +298,6 @@ class ShopeeAuthController extends Controller
             $requestOrderStatusPending = $request->query('request_order_status_pending', null);
             $responseOptionalFieldsList = $request->query('list_response_optional_fields', null);
             $logisticsChannelId        = $request->query('logistics_channel_id', null);
-            dd($orderStatus);
             $paramsList = [
                 'partner_id'       => $partnerId,
                 'timestamp'        => $timestampList,
