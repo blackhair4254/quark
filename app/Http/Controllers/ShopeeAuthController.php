@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\ShopeeApiv2Token;
+use App\Models\TransaksiD;
+use App\Models\TransaksiH;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
@@ -210,15 +212,22 @@ class ShopeeAuthController extends Controller
             'raw_response' => $json,
         ], $status);
     }
+
+    protected function mapShopeeItemToProdukId(array $item): ?int
+    {
+        // Contoh (kalau suatu saat punya kolom sku di tabel produk):
+        // return optional(Produk::where('sku', $item['item_sku'] ?? null)->first())->id_produk;
+
+        return null; // untuk sekarang, jangan paksa insert transaksi_d, biar tidak pecah karena FK.
+    }
+
     public function getOrderDetail(Request $request)
     {
         $host       = rtrim(env('SHOPEE_HOST'), '/');
         $partnerId  = (int) env('SHOPEE_PARTNER_ID');
         $partnerKey = env('SHOPEE_PARTNER_KEY');
 
-        // shop_id prioritas dari query, kalau kosong ambil dari env
         $shopId = (int) $request->query('shop_id', (int) env('SHOPEE_SHOP_ID'));
-
         if (!$partnerId || !$partnerKey || !$shopId) {
             return response()->json([
                 'error'   => 'missing_param',
@@ -239,6 +248,9 @@ class ShopeeAuthController extends Controller
         }
         $accessToken = (string) $tokenRow->access_token;
 
+        // Chain link (untuk transaksi_h)
+        $chainLink = (string) $request->query('chain_link', "shop:{$shopId}");
+
         // 1) Cek apakah client kirim order_sn_list manual
         $orderSnListRaw = trim((string) $request->query('order_sn_list', ''));
 
@@ -246,22 +258,46 @@ class ShopeeAuthController extends Controller
         $orderSns = [];
 
         if ($orderSnListRaw === '') {
-            // ambil dulu dari get_order_list (sama seperti getOrderList)
-            $apiPathList = '/api/v2/order/get_order_list';
+            // ========== Ambil TIME_FROM dinamis ==========
+
+            // Cek last shopee_create_time untuk chain_link ini
+            $lastImported = TransaksiH::where('chain_link', $chainLink)
+                ->whereNotNull('shopee_create_time')
+                ->max('shopee_create_time'); // datetime atau null
+
+            $now = Carbon::now();
+            $maxPast = $now->copy()->subDays(15);
+
+            if ($lastImported) {
+                $lastImportedCarbon = Carbon::parse($lastImported);
+                // time_from = max(lastImported, now - 15 hari)
+                $timeFromCarbon = $lastImportedCarbon->greaterThan($maxPast)
+                    ? $lastImportedCarbon
+                    : $maxPast;
+            } else {
+                // belum pernah tarik dari Shopee -> default 15 hari ke belakang
+                $timeFromCarbon = $maxPast;
+            }
+
+            $timeFrom = $timeFromCarbon->timestamp;
+            $timeTo   = $now->timestamp;
+
+            // ========== Panggil get_order_list ==========
+
+            $apiPathList   = '/api/v2/order/get_order_list';
             $timestampList = time();
             $baseStringList = $partnerId . $apiPathList . $timestampList . $accessToken . $shopId;
-            $signList = hash_hmac('sha256', $baseStringList, $partnerKey);
+            $signList       = hash_hmac('sha256', $baseStringList, $partnerKey);
 
-            $timeTo   = Carbon::now()->timestamp;
-            $timeFrom = Carbon::now()->subDays(15)->timestamp;
+            // default order_status: READY_TO_SHIP (bisa override via query)
+            $orderStatus = $request->query('order_status', 'READY_TO_SHIP');
 
-            $timeRangeField           = $request->query('time_range_field', 'create_time');
-            $pageSize                 = (int) $request->query('page_size', 100);
-            $cursor                   = $request->query('cursor', '');
-            $orderStatus              = $request->query('order_status', 'PROCESSED');
+            $timeRangeField            = $request->query('time_range_field', 'create_time');
+            $pageSize                  = (int) $request->query('page_size', 100);
+            $cursor                    = $request->query('cursor', '');
             $requestOrderStatusPending = $request->query('request_order_status_pending', null);
             $responseOptionalFieldsList = $request->query('list_response_optional_fields', null);
-            $logisticsChannelId       = $request->query('logistics_channel_id', null);
+            $logisticsChannelId        = $request->query('logistics_channel_id', null);
 
             $paramsList = [
                 'partner_id'       => $partnerId,
@@ -273,13 +309,13 @@ class ShopeeAuthController extends Controller
                 'time_from'        => $timeFrom,
                 'time_to'          => $timeTo,
                 'page_size'        => $pageSize,
+                'order_status'     => $orderStatus,
             ];
 
-            if ($cursor !== '')                    $paramsList['cursor'] = $cursor;
-            if (!is_null($orderStatus))            $paramsList['order_status'] = $orderStatus;
-            if (!is_null($requestOrderStatusPending)) $paramsList['request_order_status_pending'] = $requestOrderStatusPending;
-            if (!is_null($responseOptionalFieldsList)) $paramsList['response_optional_fields'] = $responseOptionalFieldsList;
-            if (!is_null($logisticsChannelId))     $paramsList['logistics_channel_id'] = (int) $logisticsChannelId;
+            if ($cursor !== '')                        $paramsList['cursor'] = $cursor;
+            if (!is_null($requestOrderStatusPending))  $paramsList['request_order_status_pending'] = $requestOrderStatusPending;
+            if (!is_null($responseOptionalFieldsList)) $paramsList['response_optional_fields']      = $responseOptionalFieldsList;
+            if (!is_null($logisticsChannelId))         $paramsList['logistics_channel_id']          = (int) $logisticsChannelId;
 
             try {
                 $respList = Http::timeout(30)->get($host . $apiPathList, $paramsList);
@@ -312,8 +348,8 @@ class ShopeeAuthController extends Controller
             $orderList = Arr::get($jsonList, 'response.order_list', []);
             if (empty($orderList)) {
                 return response()->json([
-                    'error'   => 'no_orders',
-                    'message' => 'Tidak ada order yang ditemukan dari get_order_list.',
+                    'error'        => 'no_orders',
+                    'message'      => 'Tidak ada order yang ditemukan dari get_order_list.',
                     'raw_response' => $jsonList,
                 ], 404);
             }
@@ -326,8 +362,8 @@ class ShopeeAuthController extends Controller
 
             if (empty($orderSns)) {
                 return response()->json([
-                    'error'   => 'no_order_sn',
-                    'message' => 'get_order_list tidak mengembalikan order_sn yang valid.',
+                    'error'        => 'no_order_sn',
+                    'message'      => 'get_order_list tidak mengembalikan order_sn yang valid.',
                     'raw_response' => $jsonList,
                 ], 404);
             }
@@ -352,8 +388,6 @@ class ShopeeAuthController extends Controller
         // Shopee limit: max 50 order_sn per get_order_detail request
         $chunks = array_chunk($orderSns, 50);
 
-        // Jika caller mengirim response_optional_fields lewat query, gunakan itu.
-        // Kalau tidak, pakai daftar fields lengkap (recommended).
         $defaultFields = implode(',', [
             'buyer_user_id','buyer_username','estimated_shipping_fee','recipient_address',
             'actual_shipping_fee','goods_to_declare','note','note_update_time','item_list',
@@ -376,10 +410,10 @@ class ShopeeAuthController extends Controller
         foreach ($chunks as $chunk) {
             $orderSnListChunk = implode(',', $chunk);
 
-            $apiPathDetail = '/api/v2/order/get_order_detail';
-            $timestampDetail = time();
+            $apiPathDetail    = '/api/v2/order/get_order_detail';
+            $timestampDetail  = time();
             $baseStringDetail = $partnerId . $apiPathDetail . $timestampDetail . $accessToken . $shopId;
-            $signDetail = hash_hmac('sha256', $baseStringDetail, $partnerKey);
+            $signDetail       = hash_hmac('sha256', $baseStringDetail, $partnerKey);
 
             $paramsDetail = [
                 'partner_id'    => $partnerId,
@@ -401,15 +435,15 @@ class ShopeeAuthController extends Controller
                 $respDetail = Http::timeout(30)->get($host . $apiPathDetail, $paramsDetail);
             } catch (\Exception $e) {
                 $errors[] = [
-                    'type' => 'http_error',
+                    'type'    => 'http_error',
                     'message' => 'Gagal memanggil get_order_detail: ' . $e->getMessage(),
-                    'chunk' => $chunk,
+                    'chunk'   => $chunk,
                 ];
                 continue;
             }
 
             $statusDetail = $respDetail->status();
-            $jsonDetail = $respDetail->json();
+            $jsonDetail   = $respDetail->json();
 
             $rawResponses[] = [
                 'http_status' => $statusDetail,
@@ -419,7 +453,7 @@ class ShopeeAuthController extends Controller
 
             if (!is_array($jsonDetail)) {
                 $errors[] = [
-                    'type' => 'invalid_response',
+                    'type'    => 'invalid_response',
                     'message' => 'Respons get_order_detail bukan JSON.',
                     'params'  => $paramsDetail,
                     'raw'     => $respDetail->body(),
@@ -429,45 +463,179 @@ class ShopeeAuthController extends Controller
 
             if (!empty($jsonDetail['error'])) {
                 $errors[] = [
-                    'type' => 'shopee_error',
-                    'error' => $jsonDetail['error'],
+                    'type'    => 'shopee_error',
+                    'error'   => $jsonDetail['error'],
                     'message' => $jsonDetail['message'] ?? null,
                     'params'  => $paramsDetail,
                     'raw'     => $jsonDetail,
                 ];
-                // tetap coba ambil order_list meskipun error field ada (kadang Shopee set error tapi return partial)
             }
 
             $orderListChunk = Arr::get($jsonDetail, 'response.order_list', []);
             if (is_array($orderListChunk) && !empty($orderListChunk)) {
-                // gabungkan
                 $mergedOrders = array_merge($mergedOrders, $orderListChunk);
             }
         }
 
-        // Deduplicate by order_sn (jika ada duplikat), keep last
+        // Deduplicate by order_sn
         $mergedOrdersBySn = [];
         foreach ($mergedOrders as $ord) {
             if (isset($ord['order_sn'])) {
                 $mergedOrdersBySn[$ord['order_sn']] = $ord;
             } else {
-                // jika tidak ada order_sn (aneh), push dengan uniq key
                 $mergedOrdersBySn[uniqid('o_')] = $ord;
             }
         }
         $mergedOrders = array_values($mergedOrdersBySn);
 
+        // ========== SIMPAN KE DB: transaksi_h & transaksi_d ==========
+        DB::transaction(function () use ($mergedOrders, $chainLink, $shopId) {
+            foreach ($mergedOrders as $ord) {
+
+                $orderSn = $ord['order_sn'] ?? null;
+                if (!$orderSn) {
+                    continue;
+                }
+
+                // header: unique by (chain_link, invoice=order_sn)
+                /** @var TransaksiH $header */
+                $header = TransaksiH::firstOrNew([
+                    'chain_link' => $chainLink,
+                    'invoice'    => $orderSn,
+                ]);
+
+                $isNew = !$header->exists;
+
+                // Set status transaksi dari Shopee
+                $header->status = 'new'; // sesuai permintaan
+
+                // Field dasar (hanya override kalau baru, biar nggak ganggu edit manual)
+                if ($isNew) {
+                    $header->pengirim          = $header->pengirim          ?? ('Shopee Shop ' . $shopId);
+                    $header->no_telp_pengirim  = $header->no_telp_pengirim  ?? '';
+                    $header->jenis_logistik    = $header->jenis_logistik    ?? ($ord['shipping_carrier'] ?? '');
+                    $header->no_resi           = $header->no_resi           ?? (Arr::get($ord, 'package_list.0.package_number', ''));
+
+                    $header->nama_penerima     = $header->nama_penerima     ?? Arr::get($ord, 'recipient_address.name', '');
+                    $header->no_telp_penerima  = $header->no_telp_penerima  ?? Arr::get($ord, 'recipient_address.phone', '');
+                    $header->alamat_penerima   = $header->alamat_penerima   ?? Arr::get($ord, 'recipient_address.full_address', '');
+
+                    $createTs = $ord['create_time'] ?? null;
+                    $header->tanggal = $header->tanggal
+                        ?? ($createTs ? Carbon::createFromTimestamp($createTs)->toDateString() : now()->toDateString());
+                }
+
+                // Map field Shopee ke kolom khusus
+                $header->shopee_order_sn      = $orderSn;
+                $header->shopee_region        = $ord['region']  ?? null;
+                $header->shopee_currency      = $ord['currency'] ?? null;
+                $header->shopee_cod           = $ord['cod'] ?? null;
+                $header->shopee_order_status  = $ord['order_status'] ?? null;
+
+                $header->shopee_buyer_user_id   = $ord['buyer_user_id'] ?? null;
+                $header->shopee_buyer_username  = $ord['buyer_username'] ?? null;
+                $header->shopee_shipping_carrier = $ord['shipping_carrier'] ?? null;
+                $header->shopee_payment_method   = $ord['payment_method'] ?? null;
+
+                $header->shopee_total_amount            = $ord['total_amount'] ?? null;
+                $header->shopee_estimated_shipping_fee  = $ord['estimated_shipping_fee'] ?? null;
+                $header->shopee_actual_shipping_fee     = $ord['actual_shipping_fee'] ?? null;
+                $header->shopee_reverse_shipping_fee    = $ord['reverse_shipping_fee'] ?? null;
+                $header->shopee_days_to_ship            = $ord['days_to_ship'] ?? null;
+                $header->shopee_order_chargeable_weight_gram = $ord['order_chargeable_weight_gram'] ?? null;
+
+                $header->shopee_create_time = isset($ord['create_time'])
+                    ? Carbon::createFromTimestamp($ord['create_time'])
+                    : null;
+                $header->shopee_update_time = isset($ord['update_time'])
+                    ? Carbon::createFromTimestamp($ord['update_time'])
+                    : null;
+                $header->shopee_pay_time = isset($ord['pay_time'])
+                    ? Carbon::createFromTimestamp($ord['pay_time'])
+                    : null;
+                $header->shopee_ship_by_date = isset($ord['ship_by_date'])
+                    ? Carbon::createFromTimestamp($ord['ship_by_date'])
+                    : null;
+                $header->shopee_return_request_due_date = isset($ord['return_request_due_date'])
+                    ? Carbon::createFromTimestamp($ord['return_request_due_date'])
+                    : null;
+
+                $header->shopee_is_buyer_shop_collection = $ord['is_buyer_shop_collection'] ?? null;
+                $header->shopee_goods_to_declare         = $ord['goods_to_declare'] ?? null;
+
+                $header->shopee_fulfillment_flag   = $ord['fulfillment_flag'] ?? null;
+                $header->shopee_message_to_seller  = $ord['message_to_seller'] ?? null;
+                $header->shopee_note               = $ord['note'] ?? null;
+                $header->shopee_note_update_time   = isset($ord['note_update_time']) && $ord['note_update_time']
+                    ? Carbon::createFromTimestamp($ord['note_update_time'])
+                    : null;
+
+                $header->shopee_pending_terms    = $ord['pending_terms'] ?? null;
+                $header->shopee_recipient_address = $ord['recipient_address'] ?? null;
+                $header->shopee_package_list      = $ord['package_list'] ?? null;
+                $header->shopee_invoice_data      = $ord['invoice_data'] ?? null;
+                $header->shopee_payment_info      = $ord['payment_info'] ?? null;
+                $header->shopee_raw               = $ord; // entire order object
+
+                $header->save();
+
+                // ========== DETAIL ==========
+                $idTransaksi = $header->id_transaksi;
+
+                // Optional: hapus detail lama utk order ini (kalau mau sync penuh)
+                TransaksiD::where('id_transaksi_h', $idTransaksi)->delete();
+
+                $items = $ord['item_list'] ?? [];
+                foreach ($items as $item) {
+                    $produkId = $this->mapShopeeItemToProdukId($item);
+
+                    if (!$produkId) {
+                        // Belum ada mapping -> hanya skip detail ini (header tetap tersimpan)
+                        continue;
+                    }
+
+                    TransaksiD::updateOrCreate(
+                        [
+                            'id_transaksi_h' => $idTransaksi,
+                            'id_produk'      => $produkId,
+                        ],
+                        [
+                            'nama_produk' => $item['item_name'] ?? '',
+                            'qty'         => $item['model_quantity_purchased'] ?? 1,
+
+                            'shopee_item_id'                => $item['item_id'] ?? null,
+                            'shopee_order_item_id'          => $item['order_item_id'] ?? null,
+                            'shopee_model_id'               => $item['model_id'] ?? null,
+                            'shopee_item_sku'               => $item['item_sku'] ?? null,
+                            'shopee_model_sku'              => $item['model_sku'] ?? null,
+                            'shopee_model_name'             => $item['model_name'] ?? null,
+                            'shopee_model_original_price'   => $item['model_original_price'] ?? null,
+                            'shopee_model_discounted_price' => $item['model_discounted_price'] ?? null,
+                            'shopee_weight'                 => $item['weight'] ?? null,
+                            'shopee_add_on_deal'            => $item['add_on_deal'] ?? null,
+                            'shopee_add_on_deal_id'         => $item['add_on_deal_id'] ?? null,
+                            'shopee_main_item'              => $item['main_item'] ?? null,
+                            'shopee_promotion_type'         => $item['promotion_type'] ?? null,
+                            'shopee_promotion_id'           => $item['promotion_id'] ?? null,
+                            'shopee_promotion_group_id'     => $item['promotion_group_id'] ?? null,
+                            'shopee_image_url'              => Arr::get($item, 'image_info.image_url'),
+                            'shopee_product_location_id'    => $item['product_location_id'] ?? null,
+                            'shopee_item_raw'               => $item,
+                        ]
+                    );
+                }
+            }
+        });
+
         $statusReturn = 200;
         if (!empty($errors) && empty($mergedOrders)) {
-            // jika semua batch error dan tidak ada hasil -> kembalikan error code dari first raw response kalau ada
             $statusReturn = $rawResponses[0]['http_status'] ?? 500;
         }
 
         return response()->json([
             'http_status'      => $statusReturn,
-            'requested_list'   => $listMeta, // bisa null kalau order_sn_list dikirim manual
+            'requested_list'   => $listMeta,
             'requested_detail' => [
-                // catatan: kalau chunk>1, ini hanya salah satu; raw_responses menyimpan detail tiap panggilan
                 'fields_requested' => $requestedFields,
                 'per_chunk_count'  => array_map('count', $chunks),
             ],
@@ -475,8 +643,9 @@ class ShopeeAuthController extends Controller
             'errors'           => $errors,
             'merged_response'  => [
                 'order_list' => $mergedOrders,
-                'count' => count($mergedOrders),
+                'count'      => count($mergedOrders),
             ],
         ], $statusReturn);
     }
+
 }
