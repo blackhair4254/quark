@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Auth;
 
 class ShopeeAuthController extends Controller
 {
@@ -249,7 +250,7 @@ class ShopeeAuthController extends Controller
         $accessToken = (string) $tokenRow->access_token;
 
         // Chain link (untuk transaksi_h)
-        $chainLink = (string) $request->query('chain_link', "shop:{$shopId}");
+        $chainLink = Auth::user()->chain_link;
 
         // 1) Cek apakah client kirim order_sn_list manual
         $orderSnListRaw = trim((string) $request->query('order_sn_list', ''));
