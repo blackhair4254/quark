@@ -614,62 +614,36 @@ class ShopeeAuthController extends Controller
 
                 $items = $ord['item_list'] ?? [];
                 foreach ($items as $item) {
-                    // --- inside foreach ($items as $item) { ... }
-
                     $produkId = $this->mapShopeeItemToProdukId($item, $chainLink, $shopId);
 
-                    // Unique key untuk updateOrCreate:
-                    // - kalau ada mapping -> gunakan (id_transaksi_h, id_produk)
-                    // - kalau belum -> gunakan (id_transaksi_h, shopee_order_item_id) agar row Shopee bisa disimpan walau id_produk null
-                    $uniqueKey = null;
-                    $orderItemId = $item['order_item_id'] ?? null;
-                    $itemId = $item['item_id'] ?? null;
+                    TransaksiD::create([
+                        'id_transaksi_h'                  => $idTransaksi,
+                        'id_produk'                       => $produkId, // boleh null, migration kamu sudah nullable
+                        'nama_produk'                     => $item['item_name'] ?? ($item['model_name'] ?? 'Produk Shopee'),
+                        'qty'                             => $item['model_quantity_purchased'] ?? ($item['quantity'] ?? 1),
 
-                    if ($produkId) {
-                        $uniqueKey = [
-                            'id_transaksi_h' => $idTransaksi,
-                            'id_produk'      => $produkId,
-                        ];
-                    } else {
-                        // fallback: gunakan order_item_id jika ada, jika tidak ada gunakan kombinasi id_transaksi_h+item_id
-                        $uniqueKey = $orderItemId
-                            ? ['id_transaksi_h' => $idTransaksi, 'shopee_order_item_id' => $orderItemId]
-                            : ['id_transaksi_h' => $idTransaksi, 'shopee_item_id' => $itemId];
-                    }
-
-                    TransaksiD::updateOrCreate(
-                        $uniqueKey,
-                        [
-                            // allow id_produk to be null
-                            'id_produk'                      => $produkId,
-                            // nama_produk di transaksi_d: tetap simpan nama dari Shopee agar UI menampilkan sesuatu
-                            'nama_produk'                    => $item['item_name'] ?? ($item['model_name'] ?? 'Produk Shopee'),
-                            'qty'                            => $item['model_quantity_purchased'] ?? ($item['quantity'] ?? 1),
-
-                            // Shopee fields (simpan semuanya)
-                            'shopee_item_id'                 => $item['item_id'] ?? null,
-                            'shopee_order_item_id'           => $item['order_item_id'] ?? null,
-                            'shopee_model_id'                => $item['model_id'] ?? null,
-                            'shopee_item_sku'                => $item['item_sku'] ?? null,
-                            'shopee_model_sku'               => $item['model_sku'] ?? null,
-                            'shopee_item_name'               => $item['item_name'] ?? null,
-                            'shopee_model_name'              => $item['model_name'] ?? null,
-                            'shopee_model_original_price'    => $item['model_original_price'] ?? null,
-                            'shopee_model_discounted_price'  => $item['model_discounted_price'] ?? null,
-                            'shopee_weight'                  => $item['weight'] ?? null,
-                            'shopee_add_on_deal'             => $item['add_on_deal'] ?? null,
-                            'shopee_add_on_deal_id'          => $item['add_on_deal_id'] ?? null,
-                            'shopee_main_item'               => $item['main_item'] ?? null,
-                            'shopee_promotion_type'          => $item['promotion_type'] ?? null,
-                            'shopee_promotion_id'            => $item['promotion_id'] ?? null,
-                            'shopee_promotion_group_id'      => $item['promotion_group_id'] ?? null,
-                            'shopee_image_url'               => Arr::get($item, 'image_info.image_url'),
-                            'shopee_product_location_id'     => $item['product_location_id'] ?? null,
-                            'shopee_item_raw'                => $item,
-                        ]
-                    );
-
+                        'shopee_item_id'                  => $item['item_id'] ?? null,
+                        'shopee_order_item_id'            => $item['order_item_id'] ?? null,
+                        'shopee_model_id'                 => $item['model_id'] ?? null,
+                        'shopee_item_sku'                 => $item['item_sku'] ?? null,
+                        'shopee_model_sku'                => $item['model_sku'] ?? null,
+                        'shopee_item_name'                => $item['item_name'] ?? null,
+                        'shopee_model_name'               => $item['model_name'] ?? null,
+                        'shopee_model_original_price'     => $item['model_original_price'] ?? null,
+                        'shopee_model_discounted_price'   => $item['model_discounted_price'] ?? null,
+                        'shopee_weight'                   => $item['weight'] ?? null,
+                        'shopee_add_on_deal'              => $item['add_on_deal'] ?? null,
+                        'shopee_add_on_deal_id'           => $item['add_on_deal_id'] ?? null,
+                        'shopee_main_item'                => $item['main_item'] ?? null,
+                        'shopee_promotion_type'           => $item['promotion_type'] ?? null,
+                        'shopee_promotion_id'             => $item['promotion_id'] ?? null,
+                        'shopee_promotion_group_id'       => $item['promotion_group_id'] ?? null,
+                        'shopee_image_url'                => Arr::get($item, 'image_info.image_url'),
+                        'shopee_product_location_id'      => $item['product_location_id'] ?? null,
+                        'shopee_item_raw'                 => $item,
+                    ]);
                 }
+
 
             }
         });
