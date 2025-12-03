@@ -228,22 +228,23 @@
                         <div class="col-6">
                             <label class="form-label">Shopee Item ID</label>
                             <input type="number" name="marketplace_item_id" class="input"
-                                   value="{{ old('marketplace_item_id', $itemId) }}">
+                                value="{{ old('marketplace_item_id', $itemId) }}">
                             <div class="help">
                                 ID item dari Shopee (field <code>item_id</code> di API).<br>
-                                Nama item: <strong>{{ request()->query('shopee_item_name', '—') }}</strong>
+                                Nama item: <strong>{{ $shopeeItemName ?? '—' }}</strong>
                             </div>
                         </div>
 
                         <div class="col-6">
                             <label class="form-label">Shopee Model ID</label>
                             <input type="number" name="marketplace_model_id" class="input"
-                                   value="{{ old('marketplace_model_id', $modelId) }}">
+                                value="{{ old('marketplace_model_id', $modelId) }}">
                             <div class="help">
                                 Isi <strong>model_id</strong> bila produk punya varian (0 / kosong = non varian).<br>
-                                Nama model: <strong>{{ request()->query('shopee_model_name', '—') }}</strong>
+                                Nama model: <strong>{{ $shopeeModelName ?? '—' }}</strong>
                             </div>
                         </div>
+
 
                         <div class="col-12">
                             <button class="btn-primary" type="submit">Terapkan Item & Shop</button>

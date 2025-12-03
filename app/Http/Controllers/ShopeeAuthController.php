@@ -686,6 +686,27 @@ class ShopeeAuthController extends Controller
         $itemId = $itemIdRaw !== null && $itemIdRaw !== '' ? (int) $itemIdRaw : null;
         $modelId = (!empty($modelIdRaw) && $modelIdRaw != 0) ? (int) $modelIdRaw : null;
 
+        $shopeeItemName  = null;
+        $shopeeModelName = null;
+        if ($itemId) {
+            $row = DB::table('transaksi_d as d')
+                ->join('transaksi_h as h', 'h.id_transaksi', '=', 'd.id_transaksi_h')
+                ->where('h.chain_link', $chainLink)
+                ->where('d.shopee_item_id', $itemId)
+                ->when($modelId, function ($q) use ($modelId) {
+                    $q->where('d.shopee_model_id', $modelId);
+                }, function ($q) {
+                    $q->whereNull('d.shopee_model_id');
+                })
+                ->orderByDesc('h.id_transaksi')
+                ->select('d.shopee_item_name', 'd.shopee_model_name')
+                ->first();
+
+            if ($row) {
+                $shopeeItemName  = $row->shopee_item_name;
+                $shopeeModelName = $row->shopee_model_name;
+            }
+        }
         // daftar mapping (lama)
         $mappings = ProdukMarketplaceMap::with('produk')
             ->where('chain_link', $chainLink)
@@ -744,6 +765,8 @@ class ShopeeAuthController extends Controller
             'q',
             'itemId',
             'modelId',
+            'shopeeItemName',
+            'shopeeModelName',
             'activeMap',
         ));
     }
