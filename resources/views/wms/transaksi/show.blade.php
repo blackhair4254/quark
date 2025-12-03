@@ -214,7 +214,7 @@
                         @if($trx->status === 'new')
                           @if(!$d->id_produk)
                             {{-- arahkan ke halaman mapping dan prefill marketplace ids via query string --}}
-                            <a class="btn" href="{{ route('wms.mapping_produk.index', [
+                            <a class="btn" href="{{ route('mapping_produk.index', [
                                   'marketplace_item_id' => $d->shopee_item_id,
                                   'marketplace_model_id' => $d->shopee_model_id,
                                   'shop_id' => request()->query('shop_id', null),
@@ -223,7 +223,7 @@
                             </a>
                           @else
                             {{-- kalau sudah mapping boleh tampilkan link ke halaman mapping untuk melihat atau ubah --}}
-                            <a class="btn" href="{{ route('wms.mapping_produk.index', [
+                            <a class="btn" href="{{ route('mapping_produk.index', [
                                   'shop_id' => request()->query('shop_id', null)
                             ]) }}">Lihat Mapping</a>
                           @endif
