@@ -20,6 +20,7 @@ return new class extends Migration
         Schema::table('transaksi_d', function (Blueprint $t) {
             // akan jadi PK baru
             $t->bigIncrements('id')->first();
+            $t->string('shopee_item_name')->nullable();
         });
 
         // 3) Jadikan id_produk nullable + tambahkan FK lagi (opsional)
