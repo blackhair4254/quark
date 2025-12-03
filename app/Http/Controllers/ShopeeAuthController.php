@@ -680,28 +680,74 @@ class ShopeeAuthController extends Controller
 
         $shopId = (int) $request->query('shop_id', (int) env('SHOPEE_SHOP_ID'));
 
+        $itemIdRaw  = $request->query('marketplace_item_id');
+        $modelIdRaw = $request->query('marketplace_model_id');
+
+        $itemId = $itemIdRaw !== null && $itemIdRaw !== '' ? (int) $itemIdRaw : null;
+        $modelId = (!empty($modelIdRaw) && $modelIdRaw != 0) ? (int) $modelIdRaw : null;
+
+        // daftar mapping (lama)
         $mappings = ProdukMarketplaceMap::with('produk')
             ->where('chain_link', $chainLink)
             ->where('marketplace', $marketplace)
             ->when($shopId, function ($q) use ($shopId) {
                 $q->where(function ($qq) use ($shopId) {
                     $qq->whereNull('shop_id')
-                       ->orWhere('shop_id', $shopId);
+                    ->orWhere('shop_id', $shopId);
                 });
             })
             ->orderByDesc('id')
             ->paginate(50);
 
-        // list produk (bisa dipakai untuk dropdown awal)
-        $produkList = Produk::orderBy('nama_produk')->limit(100)->get();
+        // daftar produk internal (baru) + search
+        $q = trim((string) $request->query('q', ''));
+        $produkQuery = Produk::query()
+            ->where('chain_link', $chainLink);
+
+        if ($q !== '') {
+            $produkQuery->where(function ($qq) use ($q) {
+                $qq->where('nama_produk', 'like', "%{$q}%")
+                ->orWhere('sku', 'like', "%{$q}%");
+            });
+        }
+
+        $produkPage = $produkQuery
+            ->orderBy('nama_produk')
+            ->paginate(20)
+            ->withQueryString();
+
+        // mapping aktif untuk kombinasi item_id + model_id (kalau ada)
+        $activeMap = null;
+        if ($itemId) {
+            $activeMap = ProdukMarketplaceMap::where('chain_link', $chainLink)
+                ->where('marketplace', $marketplace)
+                ->when($shopId, function ($q) use ($shopId) {
+                    $q->where(function ($qq) use ($shopId) {
+                        $qq->whereNull('shop_id')
+                        ->orWhere('shop_id', $shopId);
+                    });
+                })
+                ->where('marketplace_item_id', $itemId)
+                ->when($modelId, function ($q) use ($modelId) {
+                    $q->where('marketplace_model_id', $modelId);
+                }, function ($q) {
+                    $q->whereNull('marketplace_model_id');
+                })
+                ->first();
+        }
 
         return view('wms.mapping_produk.index', compact(
             'mappings',
-            'produkList',
             'shopId',
-            'marketplace'
+            'marketplace',
+            'produkPage',
+            'q',
+            'itemId',
+            'modelId',
+            'activeMap',
         ));
     }
+
 
     /**
      * POST tambah / update mapping
@@ -740,16 +786,16 @@ class ShopeeAuthController extends Controller
             })
             ->first();
 
-        if ($existing && $existing->id_produk !== $idProduk) {
-            // error: sudah ter-mapping ke produk lain
-            return back()
-                ->withInput()
-                ->withErrors(['marketplace_item_id' => 'Item/model Shopee ini sudah ter-mapping ke produk: ' . $existing->produk->nama_produk]);
-        }
+        if ($existing) {
+            if ($existing->id_produk === $idProduk) {
+                return back()->with('status', 'Mapping sudah ada, tidak ada perubahan.');
+            }
 
-        if ($existing && $existing->id_produk === $idProduk) {
-            // mapping sama persis, anggap sukses saja
-            return back()->with('status', 'Mapping sudah ada, tidak ada perubahan.');
+            // update mapping ke produk baru
+            $existing->id_produk = $idProduk;
+            $existing->save();
+
+            return back()->with('status', 'Mapping produk berhasil diperbarui.');
         }
 
         // buat mapping baru
@@ -764,6 +810,8 @@ class ShopeeAuthController extends Controller
 
         return back()->with('status', 'Mapping produk berhasil dibuat.');
     }
+
+
 
     /**
      * DELETE /wms/mapping-produk/{id}

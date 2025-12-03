@@ -11,7 +11,8 @@
 
     <style>
         .map-form-card,
-        .map-list-card{
+        .map-list-card,
+        .produk-list-card{
             margin-bottom:16px;
         }
 
@@ -36,6 +37,23 @@
             font-weight:600;
             color:#0f172a;
             margin-bottom:4px;
+        }
+
+        .card-header-line{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:8px;
+        }
+
+        .btn-toggle{
+            border:none;
+            background:#f1f5f9;
+            border-radius:999px;
+            padding:4px 10px;
+            font-size:12px;
+            cursor:pointer;
+            color:#0f172a;
         }
 
         .map-table-wrap{
@@ -66,22 +84,6 @@
         }
         .num{text-align:right;font-variant-numeric:tabular-nums;}
 
-        .badge-sel{
-            display:inline-block;
-            padding:2px 6px;
-            border-radius:999px;
-            background:#e5e7eb;
-            font-size:11px;
-        }
-
-        /* suggestions dropdown */
-        #produk_suggestions{
-            position:relative;
-            max-height:220px;
-            overflow-y:auto;
-            z-index:20;
-        }
-
         .alert-status{
             padding:8px 10px;
             border-radius:8px;
@@ -95,6 +97,49 @@
         .alert-status.err{
             background:#fee2e2;
             color:#b91c1c;
+        }
+
+        .help{
+            font-size:12px;
+            color:#6b7280;
+            margin-top:2px;
+        }
+
+        .produk-search-row{
+            display:flex;
+            gap:8px;
+            align-items:center;
+            margin-bottom:8px;
+            flex-wrap:wrap;
+        }
+        .produk-search-row .grow{
+            flex:1 1 180px;
+        }
+        .produk-table{
+            width:100%;
+            border-spacing:0;
+            font-size:13px;
+        }
+        .produk-table thead th{
+            position:sticky;top:0;
+            background:#f8fafc;
+            border-bottom:1px solid #e5e7eb;
+            padding:6px 8px;
+            font-weight:600;
+            color:#64748b;
+            white-space:nowrap;
+        }
+        .produk-table tbody td{
+            padding:6px 8px;
+            border-bottom:1px solid #f1f5f9;
+            vertical-align:top;
+        }
+        .produk-table tbody tr:hover{
+            background:#f9fafb;
+        }
+        .btn-sm{
+            padding:4px 8px;
+            font-size:12px;
         }
     </style>
 </head>
@@ -156,93 +201,163 @@
             </div>
         @endif
 
-        {{-- FORM TAMBAH MAPPING --}}
+        {{-- FORM KONTEXT SHOPEE (bisa hide) --}}
         <div class="card map-form-card">
-            <div class="card-header">
-                Tambah Mapping Produk Shopee → Produk Internal
+            <div class="card-header card-header-line">
+                <span>Tambah Mapping Produk Shopee → Produk Internal</span>
+                <button type="button" class="btn-toggle" id="toggleFormBtn">Sembunyikan</button>
             </div>
-            <div class="card-body">
-                <form action="{{ route('mapping_produk.store') }}" method="POST">
-                    @csrf
+            <div class="card-body" id="mapFormBody">
+                {{-- form ini hanya untuk set konteks shop_id, item_id, model_id --}}
+                <form action="{{ route('mapping_produk.index') }}" method="GET">
                     <div class="map-form-grid">
-
-                        <div class="col-2">
+                        {{-- Row 1 --}}
+                        <div class="col-6">
                             <label class="form-label">Marketplace</label>
                             <input type="text" class="input" value="Shopee" disabled>
                         </div>
 
-                        <div class="col-2">
+                        <div class="col-6">
                             <label class="form-label">Shop ID</label>
                             <input type="number" name="shop_id" class="input"
                                    value="{{ old('shop_id', $shopId) }}">
+                            <div class="help">Shop ID toko Shopee yang digunakan.</div>
                         </div>
 
-                        <div class="col-3">
+                        {{-- Row 2 --}}
+                        <div class="col-6">
                             <label class="form-label">Shopee Item ID</label>
-                            <input type="number" name="marketplace_item_id" class="form-control"
-                                value="{{ old('marketplace_item_id', request()->query('marketplace_item_id')) }}" required>
+                            <input type="number" name="marketplace_item_id" class="input"
+                                   value="{{ old('marketplace_item_id', $itemId) }}">
                             <div class="help">
-                                Wajib diisi. Dari field <code>item_id</code> di API.
-                            </div>
-                        </div>
-
-                        <div class="col-3">
-                            <label class="form-label">Shopee Model ID</label>
-                            <input type="number" name="marketplace_model_id" class="form-control"
-                                value="{{ old('marketplace_model_id', request()->query('marketplace_model_id')) }}">
-                            <div class="help">
-                                Isi <strong>model_id</strong> bila produk punya varian.
-                                Kosongkan / isi 0 jika tidak punya varian.
+                                ID item dari Shopee (field <code>item_id</code> di API).<br>
+                                Nama item: <strong>{{ request()->query('item_name', '—') }}</strong>
                             </div>
                         </div>
 
                         <div class="col-6">
-                            <label class="form-label">Produk Internal</label>
-                            <div class="input-group">
-                                <input type="hidden" name="id_produk" id="id_produk"
-                                       value="{{ old('id_produk') }}">
-
-                                <input type="text" id="produk_search" class="input"
-                                       placeholder="Ketik nama / SKU produk untuk cari…">
-                                <button class="btn" type="button" id="clearProduk">
-                                    Clear
-                                </button>
+                            <label class="form-label">Shopee Model ID</label>
+                            <input type="number" name="marketplace_model_id" class="input"
+                                   value="{{ old('marketplace_model_id', $modelId) }}">
+                            <div class="help">
+                                Isi <strong>model_id</strong> bila produk punya varian (0 / kosong = non varian).<br>
+                                Nama model: <strong>{{ request()->query('model_name', '—') }}</strong>
                             </div>
-                            <div id="produk_info" class="help">
-                                @if(old('id_produk'))
-                                    @php
-                                        $p = $produkList->firstWhere('id_produk', old('id_produk'));
-                                    @endphp
-                                    @if($p)
-                                        Dipilih: {{ $p->nama_produk }} (ID: {{ $p->id_produk }}
-                                        @if(!empty($p->sku)) , SKU: {{ $p->sku }} @endif
-                                        )
-                                    @else
-                                        Produk dengan ID {{ old('id_produk') }} tidak ditemukan.
-                                    @endif
-                                @else
-                                    Belum ada produk dipilih.
-                                @endif
-                            </div>
-                            <ul id="produk_suggestions"
-                                class="list-group"
-                                style="display:none;margin-top:4px;"></ul>
                         </div>
 
-                        <div class="col-12" style="margin-top:4px;">
-                            <button class="btn-primary" type="submit">Simpan Mapping</button>
+                        <div class="col-12">
+                            <button class="btn-primary" type="submit">Terapkan Item & Shop</button>
+                            <div class="help">
+                                Setelah mengisi Item ID & Model ID, pilih produk internal dari daftar di bawah dan klik tombol <strong>Map</strong>.
+                            </div>
                         </div>
                     </div>
                 </form>
             </div>
         </div>
 
-        {{-- DAFTAR MAPPING --}}
-        <div class="card map-list-card">
-            <div class="card-header">
-                Daftar Mapping ({{ $mappings->total() }} data)
+        {{-- DAFTAR PRODUK INTERNAL + TOMBOL MAP/UNMAP --}}
+        <div class="card produk-list-card">
+            <div class="card-header card-header-line">
+                <span>Daftar Produk Internal (Mapping per Item Shopee)</span>
             </div>
-            <div class="card-body map-table-wrap">
+            <div class="card-body">
+                <div class="produk-search-row">
+                    <form class="produk-search-row" method="GET" action="{{ route('mapping_produk.index') }}">
+                        <input type="hidden" name="shop_id" value="{{ $shopId }}">
+                        <input type="hidden" name="marketplace_item_id" value="{{ $itemId }}">
+                        <input type="hidden" name="marketplace_model_id" value="{{ $modelId }}">
+
+                        <div class="grow">
+                            <input type="text"
+                                   name="q"
+                                   class="input"
+                                   placeholder="Cari nama produk / SKU…"
+                                   value="{{ $q }}">
+                        </div>
+                        <button type="submit" class="btn-ghost">Cari</button>
+                    </form>
+                </div>
+
+                @if(!$itemId)
+                    <div class="help" style="margin-bottom:6px;">
+                        Isi dulu <strong>Shop ID</strong> dan <strong>Shopee Item ID</strong> di atas untuk mengaktifkan tombol Map/Unmap.
+                    </div>
+                @endif
+
+                <div class="map-table-wrap">
+                    <table class="produk-table">
+                        <thead>
+                        <tr>
+                            <th style="width:60px;">ID</th>
+                            <th>Nama Produk</th>
+                            <th>SKU</th>
+                            <th style="width:130px;">Aksi</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @forelse($produkPage as $p)
+                            <tr>
+                                <td class="num">{{ $p->id_produk }}</td>
+                                <td>{{ $p->nama_produk }}</td>
+                                <td>{{ $p->sku ?: '—' }}</td>
+                                <td>
+                                    @if($itemId)
+                                        @if($activeMap && $activeMap->id_produk === $p->id_produk)
+                                            {{-- tombol UNMAP --}}
+                                            <form action="{{ route('mapping_produk.destroy', $activeMap->id) }}"
+                                                  method="POST"
+                                                  onsubmit="return confirm('Yakin unmapping item ini dari produk ini?');">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-danger btn-sm">
+                                                    Unmap
+                                                </button>
+                                            </form>
+                                        @else
+                                            {{-- tombol MAP --}}
+                                            <form action="{{ route('mapping_produk.store') }}" method="POST">
+                                                @csrf
+                                                <input type="hidden" name="shop_id" value="{{ $shopId }}">
+                                                <input type="hidden" name="marketplace_item_id" value="{{ $itemId }}">
+                                                <input type="hidden" name="marketplace_model_id" value="{{ $modelId }}">
+                                                <input type="hidden" name="id_produk" value="{{ $p->id_produk }}">
+                                                <button type="submit" class="btn-primary btn-sm">
+                                                    Map
+                                                </button>
+                                            </form>
+                                        @endif
+                                    @else
+                                        <span class="help">Isi Item ID dulu</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="4" style="text-align:center;color:#6b7280;padding:12px;">
+                                    Tidak ada produk ditemukan.
+                                </td>
+                            </tr>
+                        @endforelse
+                        </tbody>
+                    </table>
+                </div>
+
+                @if($produkPage->hasPages())
+                    <div class="card-footer" style="margin-top:8px;">
+                        {{ $produkPage->links() }}
+                    </div>
+                @endif
+            </div>
+        </div>
+
+        {{-- DAFTAR MAPPING (bisa hide) --}}
+        <div class="card map-list-card">
+            <div class="card-header card-header-line">
+                <span>Daftar Mapping ({{ $mappings->total() }} data)</span>
+                <button type="button" class="btn-toggle" id="toggleMapListBtn">Sembunyikan</button>
+            </div>
+            <div class="card-body map-table-wrap" id="mapListBody">
                 <table class="map-table">
                     <thead>
                     <tr>
@@ -309,82 +424,40 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const inputSearch = document.getElementById('produk_search');
-    const ulSuggest   = document.getElementById('produk_suggestions');
-    const hiddenId    = document.getElementById('id_produk');
-    const info        = document.getElementById('produk_info');
-    const clearBtn    = document.getElementById('clearProduk');
+    const formBody = document.getElementById('mapFormBody');
+    const formBtn  = document.getElementById('toggleFormBtn');
+    const mapBody  = document.getElementById('mapListBody');
+    const mapBtn   = document.getElementById('toggleMapListBtn');
 
-    let timer = null;
+    const FORM_KEY = 'mappingProduk_form_collapsed';
+    const LIST_KEY = 'mappingProduk_list_collapsed';
 
-    function clearSuggestions() {
-        ulSuggest.innerHTML = '';
-        ulSuggest.style.display = 'none';
+    function applyState(el, btn, key, labelShow, labelHide){
+        const collapsed = localStorage.getItem(key) === '1';
+        if (collapsed){
+            el.style.display = 'none';
+            btn.textContent = labelShow;
+        } else {
+            el.style.display = '';
+            btn.textContent = labelHide;
+        }
     }
 
-    function setProduk(id, label, sku) {
-        hiddenId.value = id;
-        let text = 'Dipilih: ' + label + ' (ID: ' + id;
-        if (sku) text += ', SKU: ' + sku;
-        text += ')';
-        info.textContent = text;
-        clearSuggestions();
-    }
+    applyState(formBody, formBtn, FORM_KEY, 'Tampilkan', 'Sembunyikan');
+    applyState(mapBody, mapBtn, LIST_KEY, 'Tampilkan', 'Sembunyikan');
 
-    inputSearch.addEventListener('input', function () {
-        const q = this.value.trim();
-        hiddenId.value = '';
-        info.textContent = 'Belum ada produk dipilih.';
-
-        if (timer) clearTimeout(timer);
-
-        if (q.length < 2) {
-            clearSuggestions();
-            return;
-        }
-
-        timer = setTimeout(function () {
-            fetch("{{ url('/wms/mapping-produk/search-produk') }}?q=" + encodeURIComponent(q))
-                .then(res => res.json())
-                .then(data => {
-                    ulSuggest.innerHTML = '';
-                    if (!data.length) {
-                        clearSuggestions();
-                        return;
-                    }
-                    data.forEach(p => {
-                        const li = document.createElement('li');
-                        li.className = 'list-group-item list-group-item-action';
-                        let label = p.nama_produk + ' (ID: ' + p.id_produk;
-                        if (p.sku) label += ', SKU: ' + p.sku;
-                        label += ')';
-                        li.textContent = label;
-                        li.addEventListener('click', function () {
-                            inputSearch.value = p.nama_produk;
-                            setProduk(p.id_produk, p.nama_produk, p.sku || null);
-                        });
-                        ulSuggest.appendChild(li);
-                    });
-                    ulSuggest.style.display = 'block';
-                })
-                .catch(err => {
-                    console.error(err);
-                    clearSuggestions();
-                });
-        }, 300);
+    formBtn.addEventListener('click', function(){
+        const collapsed = formBody.style.display === 'none';
+        formBody.style.display = collapsed ? '' : 'none';
+        localStorage.setItem(FORM_KEY, collapsed ? '0' : '1');
+        formBtn.textContent = collapsed ? 'Sembunyikan' : 'Tampilkan';
     });
 
-    clearBtn.addEventListener('click', function () {
-        inputSearch.value = '';
-        hiddenId.value = '';
-        info.textContent = 'Belum ada produk dipilih.';
-        clearSuggestions();
-    });
-
-    document.addEventListener('click', function (e) {
-        if (!ulSuggest.contains(e.target) && e.target !== inputSearch) {
-            clearSuggestions();
-        }
+    mapBtn.addEventListener('click', function(){
+        const collapsed = mapBody.style.display === 'none';
+        mapBody.style.display = collapsed ? '' : 'none';
+        localStorage.setItem(LIST_KEY, collapsed ? '0' : '1');
+        mapBtn.textContent = collapsed ? 'Sembunyikan' : 'Tampilkan';
     });
 });
 </script>
