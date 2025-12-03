@@ -231,7 +231,7 @@
                                    value="{{ old('marketplace_item_id', $itemId) }}">
                             <div class="help">
                                 ID item dari Shopee (field <code>item_id</code> di API).<br>
-                                Nama item: <strong>{{ request()->query('item_name', '—') }}</strong>
+                                Nama item: <strong>{{ request()->query('shopee_item_name', '—') }}</strong>
                             </div>
                         </div>
 
@@ -241,7 +241,7 @@
                                    value="{{ old('marketplace_model_id', $modelId) }}">
                             <div class="help">
                                 Isi <strong>model_id</strong> bila produk punya varian (0 / kosong = non varian).<br>
-                                Nama model: <strong>{{ request()->query('model_name', '—') }}</strong>
+                                Nama model: <strong>{{ request()->query('shopee_model_name', '—') }}</strong>
                             </div>
                         </div>
 
