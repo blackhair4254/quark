@@ -69,6 +69,11 @@
     .badge.done{background:#dcfce7}
     .badge.cancel{background:#fee2e2}
 
+    .filters-form select.btn-ghost{
+      font-size:13px;
+    }
+
+
     /* Responsif: sembunyikan kolom kurang penting di layar kecil */
     @media (max-width: 860px){
       .col-log,.col-resi{display:none}
@@ -138,10 +143,40 @@
           Total: <strong>{{ number_format($items->total(),0,',','.') }}</strong> transaksi
           • Halaman {{ $items->currentPage() }} dari {{ $items->lastPage() }}
         </div>
-        <div class="right-tools">
+
+        <div class="right-tools" style="gap:6px;flex-wrap:wrap;justify-content:flex-end">
+          <form method="GET" action="{{ route('wms.transaksi.index') }}" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <input type="hidden" name="tab" value="{{ $tab }}">
+
+            {{-- filter ekspedisi dinamis --}}
+            <select name="log" class="btn-ghost" onchange="this.form.submit()">
+              <option value="">Semua Ekspedisi</option>
+              @foreach($logisticsOptions as $log)
+                <option value="{{ $log }}" {{ ($logFilter ?? '') === $log ? 'selected' : '' }}>
+                  {{ $log }}
+                </option>
+              @endforeach
+            </select>
+
+            {{-- search 1 kolom --}}
+            <input
+              type="text"
+              name="q"
+              value="{{ $search ?? '' }}"
+              placeholder="Cari invoice / penerima / alamat / resi"
+              style="padding:6px 10px;border-radius:8px;border:1px solid #e5e7eb;min-width:220px;"
+            />
+            <button type="submit" class="btn-ghost">Cari</button>
+
+            @if(!empty($search) || !empty($logFilter))
+              <a href="{{ route('wms.transaksi.index', ['tab' => $tab]) }}" class="btn-ghost">Reset</a>
+            @endif
+          </form>
+
           <button id="densityBtn" class="btn-ghost" type="button">Mode Rapat</button>
         </div>
       </div>
+
 
       <div class="table-wrap">
         <table id="trxTable" class="table">

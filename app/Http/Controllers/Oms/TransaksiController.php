@@ -42,24 +42,68 @@ class TransaksiController extends Controller
         }
         $status = $this->tabMap[$tab]; // null => all
 
+        $chain = Auth::user()->chain_link;
+        $search = trim((string) $request->query('q', ''));
+        $logFilter = trim((string) $request->query('log', ''));
+
+        // --- query utama list ---
         $query = TransaksiH::query()
-            ->where('chain_link', Auth::user()->chain_link)
+            ->where('chain_link', $chain)
             ->orderByDesc('created_at');
 
         if ($status !== null) {
             $query->where('status', $status);
         }
 
-        // pagination
+        if ($logFilter !== '') {
+            $query->where('jenis_logistik', $logFilter);
+        }
+
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $query->where(function ($q) use ($like) {
+                $q->where('invoice', 'ilike', $like)
+                ->orWhere('nama_penerima', 'ilike', $like)
+                ->orWhere('alamat_penerima', 'ilike', $like)
+                ->orWhere('no_resi', 'ilike', $like);
+            });
+        }
+
         $perPage = 20;
         $list = $query->paginate($perPage)->withQueryString();
 
+        // --- opsi ekspedisi dinamis per tab + search ---
+        $logisticsOptions = TransaksiH::query()
+            ->where('chain_link', $chain)
+            ->when($status !== null, function ($qq) use ($status) {
+                $qq->where('status', $status);
+            })
+            ->when($search !== '', function ($qq) use ($search) {
+                $like = '%' . $search . '%';
+                $qq->where(function ($q2) use ($like) {
+                    $q2->where('invoice', 'ilike', $like)
+                    ->orWhere('nama_penerima', 'ilike', $like)
+                    ->orWhere('alamat_penerima', 'ilike', $like)
+                    ->orWhere('no_resi', 'ilike', $like);
+                });
+            })
+            ->whereNotNull('jenis_logistik')
+            ->where('jenis_logistik', '!=', '')
+            ->distinct()
+            ->orderBy('jenis_logistik')
+            ->pluck('jenis_logistik')
+            ->toArray();
+
         return view('oms.transaksi.index', [
-            'tab' => $tab,
-            'list' => $list,
-            'tabs' => array_keys($this->tabMap),
+            'tab'              => $tab,
+            'list'             => $list,
+            'tabs'             => array_keys($this->tabMap),
+            'search'           => $search,
+            'logFilter'        => $logFilter,
+            'logisticsOptions' => $logisticsOptions,
         ]);
     }
+
 
     /**
      * Detail view (read only fields for semua staf OMS)

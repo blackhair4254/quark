@@ -83,6 +83,14 @@ class TransaksiController extends Controller
         $chain = Auth::user()->chain_link;
         $tab   = $r->query('tab','all'); 
 
+        // nilai status dari tab (all => null)
+        $status = $this->tabMap[$tab] ?? null;
+
+        // input filter & search
+        $search = trim((string) $r->query('q', ''));
+        $logFilter = trim((string) $r->query('log', ''));
+
+        // --- Query utama untuk list transaksi ---
         $q = DB::table('transaksi_h as h')
             ->where('h.chain_link', $chain)
             ->leftJoin('transaksi_d as d','d.id_transaksi_h','=','h.id_transaksi')
@@ -99,11 +107,51 @@ class TransaksiController extends Controller
             ->groupBy('h.id_transaksi','h.tanggal','h.invoice','h.pengirim','h.jenis_logistik','h.no_resi','h.nama_penerima','h.status')
             ->orderByDesc('h.id_transaksi');
 
-        if ($this->tabMap[$tab] ?? null) {
-            $q->where('h.status', $this->tabMap[$tab]);
+        // filter berdasarkan tab (status)
+        if ($status !== null) {
+            $q->where('h.status', $status);
+        }
+
+        // filter ekspedisi (jika dipilih)
+        if ($logFilter !== '') {
+            $q->where('h.jenis_logistik', $logFilter);
+        }
+
+        // searching invoice / nama penerima / alamat / resi
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $q->where(function ($qq) use ($like) {
+                $qq->where('h.invoice', 'ilike', $like)
+                ->orWhere('h.nama_penerima', 'ilike', $like)
+                ->orWhere('h.alamat_penerima', 'ilike', $like)
+                ->orWhere('h.no_resi', 'ilike', $like);
+            });
         }
 
         $items = $q->paginate(12)->withQueryString();
+
+        // === ambil daftar ekspedisi dinamis berdasar data di tab + search ===
+        $logisticsOptions = DB::table('transaksi_h as h')
+            ->where('h.chain_link', $chain)
+            ->when($status !== null, function ($qq) use ($status) {
+                $qq->where('h.status', $status);
+            })
+            // search juga mempengaruhi opsi ekspedisi di tab tsb
+            ->when($search !== '', function ($qq) use ($search) {
+                $like = '%' . $search . '%';
+                $qq->where(function ($q2) use ($like) {
+                    $q2->where('h.invoice', 'ilike', $like)
+                    ->orWhere('h.nama_penerima', 'ilike', $like)
+                    ->orWhere('h.alamat_penerima', 'ilike', $like)
+                    ->orWhere('h.no_resi', 'ilike', $like);
+                });
+            })
+            ->whereNotNull('h.jenis_logistik')
+            ->where('h.jenis_logistik', '!=', '')
+            ->distinct()
+            ->orderBy('h.jenis_logistik')
+            ->pluck('h.jenis_logistik')
+            ->toArray();
 
         $tabs = [
             'all'        => 'Semua Transaksi',
@@ -115,8 +163,16 @@ class TransaksiController extends Controller
             'cancel'     => 'Batal',
         ];
 
-        return view('wms.transaksi.index', compact('items','tab','tabs'));
+        return view('wms.transaksi.index', [
+            'items'            => $items,
+            'tab'              => $tab,
+            'tabs'             => $tabs,
+            'search'           => $search,
+            'logFilter'        => $logFilter,
+            'logisticsOptions' => $logisticsOptions,
+        ]);
     }
+
 
     public function create(Request $r)
     {

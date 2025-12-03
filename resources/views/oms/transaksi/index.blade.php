@@ -212,6 +212,7 @@
           • Halaman {{ $list->currentPage() }} dari {{ $list->lastPage() }}
         </div>
         
+        {{-- tools mass print (tetap) --}}
         <div id="massPrintTools" class="right-tools" style="display:none;" @if($tab === 'all') hidden @endif >
             <button id="massPrintBtn" type="submit" form="massPrintForm" class="btn-primary">
                 Cetak Resi Massal
@@ -221,11 +222,39 @@
                 Bersihkan Pilihan
             </button>
         </div>
-        
-        <div class="right-tools">
+
+        {{-- filter & search + mode rapat --}}
+        <div class="right-tools" style="gap:6px;flex-wrap:wrap;justify-content:flex-end">
+          <form method="GET" action="{{ route('oms.transaksi.index') }}" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <input type="hidden" name="tab" value="{{ $tab }}">
+
+            <select name="log" class="btn-ghost" onchange="this.form.submit()">
+              <option value="">Semua Ekspedisi</option>
+              @foreach($logisticsOptions as $log)
+                <option value="{{ $log }}" {{ ($logFilter ?? '') === $log ? 'selected' : '' }}>
+                  {{ $log }}
+                </option>
+              @endforeach
+            </select>
+
+            <input
+              type="text"
+              name="q"
+              value="{{ $search ?? '' }}"
+              placeholder="Cari invoice / penerima / alamat / resi"
+              style="padding:6px 10px;border-radius:8px;border:1px solid #e5e7eb;min-width:220px;"
+            />
+            <button type="submit" class="btn-ghost">Cari</button>
+
+            @if(!empty($search) || !empty($logFilter))
+              <a href="{{ route('oms.transaksi.index', ['tab' => $tab]) }}" class="btn-ghost">Reset</a>
+            @endif
+          </form>
+
           <button id="densityBtn" class="btn-ghost" type="button">Mode Rapat</button>
         </div>
       </div>
+
 
       {{-- FORM HANYA UNTUK MASS PRINT --}}
       <form id="massPrintForm" action="{{ route('oms.transaksi.print-resi-mass') }}" method="POST">
