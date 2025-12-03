@@ -101,7 +101,10 @@ Route::middleware(['auth','role:wms'])->prefix('wms')->group(function () {
     // SHOPEE API
     Route::get('/shopee/get-order-list', [ShopeeAuthController::class, 'getOrderList']);
     Route::get('/shopee/get-order-detail', [ShopeeAuthController::class, 'getOrderDetail']);
-
+    Route::get('/mapping-produk', [ShopeeAuthController::class, 'mappingProdukIndex'])->name('mapping_produk.index');
+    Route::post('/mapping-produk', [ShopeeAuthController::class, 'mappingProdukStore'])->name('mapping_produk.store');
+    Route::delete('/mapping-produk/{id}', [ShopeeAuthController::class, 'mappingProdukDestroy'])->name('mapping_produk.destroy');
+    Route::get('/mapping-produk/search-produk', [ShopeeAuthController::class, 'mappingProdukSearchProduk'])->name('mapping_produk.search_produk');
     // END SHOPEE API
 });
 

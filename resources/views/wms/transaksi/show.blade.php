@@ -200,7 +200,45 @@
           <tbody>
             @foreach($details as $d)
                 <tr>
-                    <td>{{ $d->nama_produk }}</td>
+                    <td>
+                      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                        <div>
+                          @if($d->id_produk)
+                            {{ $d->nama_produk }}
+                          @else
+                            <span class="text-danger" style="font-weight:700">belum termapping</span>
+                          @endif
+                        </div>
+
+                        {{-- Tombol mapping hanya untuk transaksi yang baru --}}
+                        @if($trx->status === 'new')
+                          @if(!$d->id_produk)
+                            {{-- arahkan ke halaman mapping dan prefill marketplace ids via query string --}}
+                            <a class="btn" href="{{ route('wms.mapping_produk.index', [
+                                  'marketplace_item_id' => $d->shopee_item_id,
+                                  'marketplace_model_id' => $d->shopee_model_id,
+                                  'shop_id' => request()->query('shop_id', null),
+                            ]) }}">
+                              Mapping
+                            </a>
+                          @else
+                            {{-- kalau sudah mapping boleh tampilkan link ke halaman mapping untuk melihat atau ubah --}}
+                            <a class="btn" href="{{ route('wms.mapping_produk.index', [
+                                  'shop_id' => request()->query('shop_id', null)
+                            ]) }}">Lihat Mapping</a>
+                          @endif
+                        @endif
+                      </div>
+
+                      {{-- Baris kecil: nama item Shopee --}}
+                      <div class="text-muted" style="margin-top:6px;font-size:13px">
+                        {{ $d->shopee_item_name ?? '-' }}
+                        @if(!empty($d->shopee_model_name))
+                          &nbsp;&mdash;&nbsp;{{ $d->shopee_model_name }}
+                        @endif
+                      </div>
+                    </td>
+
                     <td>{{ number_format($d->qty) }}</td>
                     <td class="num">Rp {{ number_format($d->harga,0,',','.') }}</td>
                     <td class="num">Rp {{ number_format($d->subtotal,0,',','.') }}</td>

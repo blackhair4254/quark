@@ -46,14 +46,24 @@ class TransaksiController extends Controller
 
         $details = DB::table('transaksi_d as d')
             ->leftJoin('produk as p','p.id_produk','=','d.id_produk')
-            ->selectRaw('d.id_produk, d.nama_produk, d.qty, COALESCE(NULLIF(p.harga_jual, \'\')::numeric, 0) as harga')
+            ->selectRaw('
+                d.id_produk,
+                d.nama_produk,
+                d.qty,
+                COALESCE(NULLIF(p.harga_jual, \'\')::numeric, 0) as harga,
+                d.shopee_item_name,
+                d.shopee_model_name,
+                d.shopee_item_id,
+                d.shopee_model_id,
+                d.shopee_order_item_id
+            ')
             ->where('d.id_transaksi_h', $transaksi->id_transaksi)
             ->orderBy('d.nama_produk')
             ->get()
             ->map(function ($row) {
                 $row->subtotal = (float)$row->harga * (int)$row->qty;
                 return $row;
-            });
+        });
 
         $totalNilai = (float) $details->sum('subtotal');
 

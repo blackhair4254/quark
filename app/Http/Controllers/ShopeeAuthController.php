@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Produk;
+use App\Models\ProdukMarketplaceMap;
 use Illuminate\Http\Request;
 use App\Models\ShopeeApiv2Token;
 use App\Models\TransaksiD;
@@ -214,13 +216,38 @@ class ShopeeAuthController extends Controller
         ], $status);
     }
 
-    protected function mapShopeeItemToProdukId(array $item): ?int
+    protected function mapShopeeItemToProdukId(array $item, string $chainLink, int $shopId): ?int
     {
-        // Contoh (kalau suatu saat punya kolom sku di tabel produk):
-        // return optional(Produk::where('sku', $item['item_sku'] ?? null)->first())->id_produk;
+        $itemId  = $item['item_id']  ?? null;
+        $modelId = $item['model_id'] ?? null;
 
-        return null; // untuk sekarang, jangan paksa insert transaksi_d, biar tidak pecah karena FK.
+        if (!$itemId) {
+            return null;
+        }
+
+        // Kalau model_id == 0 atau null -> treat sebagai non-varian (mapping by item_id saja)
+        $modelId = (!empty($modelId) && $modelId != 0) ? (int) $modelId : null;
+
+        $query = ProdukMarketplaceMap::where('chain_link', $chainLink)
+            ->where('marketplace', 'shopee')
+            ->where(function ($q) use ($shopId) {
+                // mapping bisa general (shop_id null) atau spesifik shop
+                $q->whereNull('shop_id')
+                ->orWhere('shop_id', $shopId);
+            })
+            ->where('marketplace_item_id', $itemId);
+
+        if ($modelId) {
+            $query->where('marketplace_model_id', $modelId);
+        } else {
+            $query->whereNull('marketplace_model_id');
+        }
+
+        $map = $query->first();
+
+        return $map?->id_produk;
     }
+
 
     public function getOrderDetail(Request $request)
     {
@@ -587,43 +614,63 @@ class ShopeeAuthController extends Controller
 
                 $items = $ord['item_list'] ?? [];
                 foreach ($items as $item) {
-                    $produkId = $this->mapShopeeItemToProdukId($item);
+                    // --- inside foreach ($items as $item) { ... }
 
-                    if (!$produkId) {
-                        // Belum ada mapping -> hanya skip detail ini (header tetap tersimpan)
-                        continue;
+                    $produkId = $this->mapShopeeItemToProdukId($item, $chainLink, $shopId);
+
+                    // Unique key untuk updateOrCreate:
+                    // - kalau ada mapping -> gunakan (id_transaksi_h, id_produk)
+                    // - kalau belum -> gunakan (id_transaksi_h, shopee_order_item_id) agar row Shopee bisa disimpan walau id_produk null
+                    $uniqueKey = null;
+                    $orderItemId = $item['order_item_id'] ?? null;
+                    $itemId = $item['item_id'] ?? null;
+
+                    if ($produkId) {
+                        $uniqueKey = [
+                            'id_transaksi_h' => $idTransaksi,
+                            'id_produk'      => $produkId,
+                        ];
+                    } else {
+                        // fallback: gunakan order_item_id jika ada, jika tidak ada gunakan kombinasi id_transaksi_h+item_id
+                        $uniqueKey = $orderItemId
+                            ? ['id_transaksi_h' => $idTransaksi, 'shopee_order_item_id' => $orderItemId]
+                            : ['id_transaksi_h' => $idTransaksi, 'shopee_item_id' => $itemId];
                     }
 
                     TransaksiD::updateOrCreate(
+                        $uniqueKey,
                         [
-                            'id_transaksi_h' => $idTransaksi,
-                            'id_produk'      => $produkId,
-                        ],
-                        [
-                            'nama_produk' => $item['item_name'] ?? '',
-                            'qty'         => $item['model_quantity_purchased'] ?? 1,
+                            // allow id_produk to be null
+                            'id_produk'                      => $produkId,
+                            // nama_produk di transaksi_d: tetap simpan nama dari Shopee agar UI menampilkan sesuatu
+                            'nama_produk'                    => $item['item_name'] ?? ($item['model_name'] ?? 'Produk Shopee'),
+                            'qty'                            => $item['model_quantity_purchased'] ?? ($item['quantity'] ?? 1),
 
-                            'shopee_item_id'                => $item['item_id'] ?? null,
-                            'shopee_order_item_id'          => $item['order_item_id'] ?? null,
-                            'shopee_model_id'               => $item['model_id'] ?? null,
-                            'shopee_item_sku'               => $item['item_sku'] ?? null,
-                            'shopee_model_sku'              => $item['model_sku'] ?? null,
-                            'shopee_model_name'             => $item['model_name'] ?? null,
-                            'shopee_model_original_price'   => $item['model_original_price'] ?? null,
-                            'shopee_model_discounted_price' => $item['model_discounted_price'] ?? null,
-                            'shopee_weight'                 => $item['weight'] ?? null,
-                            'shopee_add_on_deal'            => $item['add_on_deal'] ?? null,
-                            'shopee_add_on_deal_id'         => $item['add_on_deal_id'] ?? null,
-                            'shopee_main_item'              => $item['main_item'] ?? null,
-                            'shopee_promotion_type'         => $item['promotion_type'] ?? null,
-                            'shopee_promotion_id'           => $item['promotion_id'] ?? null,
-                            'shopee_promotion_group_id'     => $item['promotion_group_id'] ?? null,
-                            'shopee_image_url'              => Arr::get($item, 'image_info.image_url'),
-                            'shopee_product_location_id'    => $item['product_location_id'] ?? null,
-                            'shopee_item_raw'               => $item,
+                            // Shopee fields (simpan semuanya)
+                            'shopee_item_id'                 => $item['item_id'] ?? null,
+                            'shopee_order_item_id'           => $item['order_item_id'] ?? null,
+                            'shopee_model_id'                => $item['model_id'] ?? null,
+                            'shopee_item_sku'                => $item['item_sku'] ?? null,
+                            'shopee_model_sku'               => $item['model_sku'] ?? null,
+                            'shopee_item_name'               => $item['item_name'] ?? null,
+                            'shopee_model_name'              => $item['model_name'] ?? null,
+                            'shopee_model_original_price'    => $item['model_original_price'] ?? null,
+                            'shopee_model_discounted_price'  => $item['model_discounted_price'] ?? null,
+                            'shopee_weight'                  => $item['weight'] ?? null,
+                            'shopee_add_on_deal'             => $item['add_on_deal'] ?? null,
+                            'shopee_add_on_deal_id'          => $item['add_on_deal_id'] ?? null,
+                            'shopee_main_item'               => $item['main_item'] ?? null,
+                            'shopee_promotion_type'          => $item['promotion_type'] ?? null,
+                            'shopee_promotion_id'            => $item['promotion_id'] ?? null,
+                            'shopee_promotion_group_id'      => $item['promotion_group_id'] ?? null,
+                            'shopee_image_url'               => Arr::get($item, 'image_info.image_url'),
+                            'shopee_product_location_id'     => $item['product_location_id'] ?? null,
+                            'shopee_item_raw'                => $item,
                         ]
                     );
+
                 }
+
             }
         });
 
@@ -647,5 +694,142 @@ class ShopeeAuthController extends Controller
             ],
         ], $statusReturn);
     }
+
+        /**
+     * Halaman mapping produk marketplace <-> produk internal
+     * GET /wms/mapping-produk
+     */
+    public function mappingProdukIndex(Request $request)
+    {
+        $chainLink  = Auth::user()->chain_link;
+        $marketplace = 'shopee';
+
+        $shopId = (int) $request->query('shop_id', (int) env('SHOPEE_SHOP_ID'));
+
+        $mappings = ProdukMarketplaceMap::with('produk')
+            ->where('chain_link', $chainLink)
+            ->where('marketplace', $marketplace)
+            ->when($shopId, function ($q) use ($shopId) {
+                $q->where(function ($qq) use ($shopId) {
+                    $qq->whereNull('shop_id')
+                       ->orWhere('shop_id', $shopId);
+                });
+            })
+            ->orderByDesc('id')
+            ->paginate(50);
+
+        // list produk (bisa dipakai untuk dropdown awal)
+        $produkList = Produk::orderBy('nama_produk')->limit(100)->get();
+
+        return view('wms.mapping_produk.index', compact(
+            'mappings',
+            'produkList',
+            'shopId',
+            'marketplace'
+        ));
+    }
+
+    /**
+     * POST tambah / update mapping
+     * POST /wms/mapping-produk
+     */
+    public function mappingProdukStore(Request $request)
+    {
+        $chainLink  = Auth::user()->chain_link;
+        $marketplace = 'shopee';
+
+        $validated = $request->validate([
+            'shop_id'              => 'nullable|integer',
+            'marketplace_item_id'  => 'required|numeric',
+            'marketplace_model_id' => 'nullable|numeric',
+            'id_produk'            => 'required|exists:produk,id_produk',
+        ], [
+            'marketplace_item_id.required' => 'Item ID Shopee wajib diisi.',
+            'id_produk.required'           => 'Produk internal wajib dipilih.',
+        ]);
+
+        $shopId     = (int) ($validated['shop_id'] ?? env('SHOPEE_SHOP_ID'));
+        $itemId     = (int) $validated['marketplace_item_id'];
+        $modelIdRaw = $validated['marketplace_model_id'] ?? null;
+        $modelId    = (!empty($modelIdRaw) && $modelIdRaw != 0) ? (int) $modelIdRaw : null;
+        $idProduk   = (int) $validated['id_produk'];
+
+        // cek apakah sudah ada mapping untuk item/model ini
+        $existing = ProdukMarketplaceMap::where('chain_link', $chainLink)
+            ->where('marketplace', $marketplace)
+            ->where('shop_id', $shopId)
+            ->where('marketplace_item_id', $itemId)
+            ->when($modelId, function ($q) use ($modelId) {
+                $q->where('marketplace_model_id', $modelId);
+            }, function ($q) {
+                $q->whereNull('marketplace_model_id');
+            })
+            ->first();
+
+        if ($existing && $existing->id_produk !== $idProduk) {
+            // error: sudah ter-mapping ke produk lain
+            return back()
+                ->withInput()
+                ->withErrors(['marketplace_item_id' => 'Item/model Shopee ini sudah ter-mapping ke produk: ' . $existing->produk->nama_produk]);
+        }
+
+        if ($existing && $existing->id_produk === $idProduk) {
+            // mapping sama persis, anggap sukses saja
+            return back()->with('status', 'Mapping sudah ada, tidak ada perubahan.');
+        }
+
+        // buat mapping baru
+        ProdukMarketplaceMap::create([
+            'chain_link'           => $chainLink,
+            'marketplace'          => $marketplace,
+            'shop_id'              => $shopId,
+            'marketplace_item_id'  => $itemId,
+            'marketplace_model_id' => $modelId,
+            'id_produk'            => $idProduk,
+        ]);
+
+        return back()->with('status', 'Mapping produk berhasil dibuat.');
+    }
+
+    /**
+     * DELETE /wms/mapping-produk/{id}
+     */
+    public function mappingProdukDestroy($id)
+    {
+        $chainLink = Auth::user()->chain_link;
+
+        $map = ProdukMarketplaceMap::where('id', $id)
+            ->where('chain_link', $chainLink)
+            ->first();
+
+        if (!$map) {
+            return back()->withErrors(['mapping' => 'Data mapping tidak ditemukan atau bukan milik chain_link ini.']);
+        }
+
+        $map->delete();
+
+        return back()->with('status', 'Mapping produk berhasil dihapus.');
+    }
+
+    /**
+     * AJAX search produk internal
+     * GET /wms/mapping-produk/search-produk?q=...
+     */
+    public function mappingProdukSearchProduk(Request $request)
+    {
+        $q = trim((string) $request->query('q', ''));
+
+        $produk = Produk::query()
+            ->when($q !== '', function ($query) use ($q) {
+                $query->where('nama_produk', 'like', "%{$q}%")
+                      ->orWhere('sku', 'like', "%{$q}%");
+            })
+            ->orderBy('nama_produk')
+            ->limit(20)
+            ->get(['id_produk', 'nama_produk', 'sku']);
+
+        return response()->json($produk);
+    }
+
 
 }
