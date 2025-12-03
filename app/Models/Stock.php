@@ -12,5 +12,5 @@ class Stock extends Model
 
     protected $fillable = ['id_produk','chain_link','qty'];
 
-    public function produk() { return $this->belongsTo(Produk::class, 'id_produk', 'id_produk'); }
+    public function produk() { return $this->belongsTo(Produk::class, 'id_produk', 'id_produk')->withTrashed(); }
 }

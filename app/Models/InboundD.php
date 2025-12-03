@@ -15,6 +15,6 @@ class InboundD extends Model
         return $this->belongsTo(InboundH::class, 'id_inbound_h', 'id_inbound'); 
     }
     public function produk() { 
-        return $this->belongsTo(Produk::class, 'id_produk', 'id_produk'); 
+        return $this->belongsTo(Produk::class, 'id_produk', 'id_produk')->withTrashed(); 
     }
 }

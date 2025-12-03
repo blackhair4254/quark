@@ -131,9 +131,10 @@ class ProdukController extends Controller
             Storage::disk('public')->delete($produk->foto);
         }
 
-        $produk->delete();
+        $produk->delete(); // 👈 sekarang soft delete
         return back()->with('ok', 'Produk dihapus.');
     }
+
     public function bulkDestroy(Request $r)
     {
         $chain = Auth::user()->chain_link;
@@ -155,15 +156,15 @@ class ProdukController extends Controller
 
         DB::transaction(function () use ($produkList) {
             foreach ($produkList as $p) {
-                // hapus foto di storage
                 if ($p->foto && Storage::disk('public')->exists($p->foto)) {
                     Storage::disk('public')->delete($p->foto);
                 }
-                // hapus stok terkait (jaga2 jika FK tidak cascade)
-                if ($p->stock) {
-                    $p->stock()->delete();
-                }
-                $p->delete();
+
+                // if ($p->stock) {
+                //     $p->stock()->delete(); // ini hard delete stok, boleh aja
+                // }
+
+                $p->delete(); // 👈 soft delete produk (tidak kena FK inbound_d)
             }
         });
 
