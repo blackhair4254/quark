@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Models\TransaksiH;
 use App\Models\TransaksiD;
 use App\Models\Produk;
+use App\Models\Toko;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -67,18 +68,39 @@ class TransaksiController extends Controller
     {
         $this->ensureSameChain($transaksi);
 
-        $details = $transaksi->details()->get();
+        $details = DB::table('transaksi_d as d')
+            ->leftJoin('produk as p','p.id_produk','=','d.id_produk')
+            ->selectRaw('
+                d.id_produk,
+                d.nama_produk,
+                d.qty,
+                COALESCE(NULLIF(p.harga_jual, \'\')::numeric, 0) as harga,
+                d.shopee_item_name,
+                d.shopee_model_name,
+                d.shopee_item_id,
+                d.shopee_model_id,
+                d.shopee_order_item_id
+            ')
+            ->where('d.id_transaksi_h', $transaksi->id_transaksi)
+            ->orderBy('d.nama_produk')
+            ->get()
+            ->map(function ($row) {
+                $row->subtotal = (float)$row->harga * (int)$row->qty;
+                return $row;
+        });
 
-        // atur flag apakah tombol aksi boleh tampil:
-        // - jika status === 'new' => staff hanya lihat (no action)
-        // - jika status in ['ready','processing','shipped'] => tunjukkan tombol sesuai transisi
+        $totalNilai = (float) $details->sum('subtotal');
         $canAct = $transaksi->status !== 'new';
 
+        $toko = Toko::where('chain_link', Auth::user()->chain_link)->first();
         return view('oms.transaksi.show', [
-            'transaksi' => $transaksi,
-            'details' => $details,
+            'transaksi'  => $transaksi,
+            'details'    => $details,
+            'totalNilai' => $totalNilai,
+            'toko'       => $toko,
             'canAct' => $canAct,
         ]);
+
     }
 
     // --- existing status mutation methods (you already have them) ---

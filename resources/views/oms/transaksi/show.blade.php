@@ -213,7 +213,25 @@
           @forelse($details as $i => $d)
             <tr>
               <td class="num">{{ $i+1 }}</td>
-              <td>{{ $d->nama_produk }}</td>
+              <td>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                  <div>
+                    @if($d->id_produk)
+                      {{ $d->nama_produk }}
+                    @else
+                      <span class="text-danger" style="font-weight:700">belum termapping</span>
+                    @endif
+                  </div>
+                </div>
+
+                {{-- Baris kecil: nama item Shopee --}}
+                <div class="text-muted" style="margin-top:6px;font-size:13px">
+                  {{ $d->shopee_item_name ?? '-' }}
+                  @if(!empty($d->shopee_model_name))
+                    &nbsp;&mdash;&nbsp;{{ $d->shopee_model_name }}
+                  @endif
+                </div>
+              </td>
               <td>{{ $d->produk->sku ?? '—' }}</td>
               <td class="num">{{ number_format($d->qty,0,',','.') }}</td>
             </tr>
