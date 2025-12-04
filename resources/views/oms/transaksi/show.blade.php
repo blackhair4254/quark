@@ -83,6 +83,7 @@
     .btn-secondary.shipped{ background: #ddd6fe;}
     .btn-secondary.processing{background: #fef3c7;}
     .btn-secondary.done{background:#dcfce7 ;}
+    .btn-secondary.cancel{background: #fee2e2 ;}
 
     .btn-link{
       font-size:13px;
