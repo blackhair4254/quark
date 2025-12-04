@@ -51,6 +51,8 @@ Route::middleware(['auth','role:wms'])->prefix('wms')->group(function () {
         ->only(['index','create','store','show'])
         ->names('wms.inbound');
         // Aksi status
+    Route::get('/inbound/{inbound}', [OmsInboundController::class, 'show'])
+            ->name('inbound.show');
     Route::post('inbound/{inbound}/send',    [InboundController::class, 'send'])->name('wms.inbound.send');      
     Route::post('inbound/{inbound}/accept',  [InboundController::class, 'accept'])->name('wms.inbound.accept');  
     Route::post('inbound/{inbound}/confirm', [InboundController::class, 'confirm'])->name('wms.inbound.confirm');

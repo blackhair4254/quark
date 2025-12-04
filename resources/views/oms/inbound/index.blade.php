@@ -69,13 +69,21 @@
           <tbody>
           @forelse($items as $it)
             <tr>
-              <td>#{{ $it->id_inbound }}</td>
+              <td>
+                <a href="{{ route('oms.inbound.show', $it) }}">
+                  #{{ $it->id_inbound }}
+                </a>
+              </td>
+
               <td>{{ optional($it->tanggal_inbound)->format('Y-m-d H:i') }}</td>
               <td>{{ $it->total_sku ?? 0 }}</td>
               <td>{{ $it->total_qty ?? 0 }}</td>
               <td>{{ $it->no_resi ?? '—' }}</td>
               <td><span class="badge badge-{{ $it->status }}">{{ strtoupper($it->status) }}</span></td>
               <td>
+                <a href="{{ route('oms.inbound.show', $it) }}" class="btn-sm" style="margin-right:4px;">
+                    Detail
+                </a>
                 @if($it->status==='sent')
                     <form action="{{ route('oms.inbound.accept',$it) }}" method="POST" style="display:inline">
                         @csrf <button class="btn-sm">Terima</button>

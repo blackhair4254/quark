@@ -15,11 +15,27 @@ class OmsInboundController extends Controller
         $chain = Auth::user()->chain_link;
         $tab = $r->query('tab', 'all'); // all|sent|accept|confirm|denied
 
-        $q = InboundH::where('chain_link', $chain)->orderByDesc('id_inbound');
-        if ($tab !== 'all') $q->where('status', $tab);
+        $q = InboundH::where('chain_link', $chain)
+            ->withCount('details as total_sku')
+            ->withSum('details as total_qty', 'qty')
+            ->orderByDesc('id_inbound');
+
+        if ($tab !== 'all') {
+            $q->where('status', $tab);
+        }
 
         $items = $q->paginate(15)->withQueryString();
         return view('oms.inbound.index', compact('items','tab'));
+    }
+
+    public function show(InboundH $inbound)
+    {
+        $this->authorizeInbound($inbound);
+
+        // load detail + produk supaya bisa tampil nama & sku
+        $inbound->load(['details.produk']);
+
+        return view('oms.inbound.show', compact('inbound'));
     }
 
     public function accept(InboundH $inbound)
@@ -46,7 +62,10 @@ class OmsInboundController extends Controller
                     'chain_link' => $inbound->chain_link,
                     'qty'        => 0,
                 ]);
-                if ($stock) { $stock->qty += $d->qty; $stock->save(); }
+                if ($stock) {
+                    $stock->qty += $d->qty;
+                    $stock->save();
+                }
             }
             $inbound->update(['status'=>'confirm']);
         });
@@ -60,9 +79,13 @@ class OmsInboundController extends Controller
         if ($inbound->status !== 'accept') {
             return back()->withErrors(['status' => 'Hanya inbound berstatus accept yang dapat di-deny.']);
         }
-        // opsional: simpan alasan ke deskripsi (tambahkan field sendiri bila mau khusus)
         if ($note = trim((string)$r->input('note'))) {
-            $inbound->update(['status'=>'denied','deskripsi'=> $inbound->deskripsi ? $inbound->deskripsi."\nDENY: ".$note : "DENY: ".$note ]);
+            $inbound->update([
+                'status'    => 'denied',
+                'deskripsi' => $inbound->deskripsi
+                    ? $inbound->deskripsi."\nDENY: ".$note
+                    : "DENY: ".$note
+            ]);
         } else {
             $inbound->update(['status'=>'denied']);
         }
