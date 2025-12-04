@@ -78,6 +78,7 @@ Route::middleware(['auth','role:wms'])->prefix('wms')->group(function () {
     Route::get('transaksi/{transaksi}/edit',   [TransaksiController::class,'edit'])->name('wms.transaksi.edit');   
     Route::put('transaksi/{transaksi}',        [TransaksiController::class,'update'])->name('wms.transaksi.update');
     Route::post('transaksi/{transaksi}/cancel',         [TransaksiController::class,'cancel'])->name('wms.transaksi.cancel');                 
+    Route::post('transaksi/{transaksi}/to-ready', [TransaksiController::class,'toReady'])->name('wms.transaksi.to-ready');
     Route::post('transaksi/{transaksi}/request-cancel', [TransaksiController::class,'requestCancel'])->name('wms.transaksi.request-cancel'); 
     Route::post('transaksi/{transaksi}/request-edit',   [TransaksiController::class,'requestEdit'])->name('wms.transaksi.request-edit');     
     Route::post('transaksi/{transaksi}/to-shipped', [TransaksiController::class,'toShipped'])->name('wms.transaksi.to-shipped'); 

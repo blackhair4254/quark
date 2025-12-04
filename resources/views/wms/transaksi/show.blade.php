@@ -264,8 +264,18 @@
 
     {{-- ACTIONS FOOTER --}}
     <div class="card" style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;align-items:center;">
-      {{-- READY: edit & batal langsung --}}
       <a class="btn" href="{{ route('wms.transaksi.index') }}" id="btnBack">&larr; Kembali</a>
+      
+      {{-- NEW: tombol ubah ke READY --}}
+      @if($trx->status === 'new')
+        <form method="POST" action="{{ route('wms.transaksi.to-ready', $trx) }}"
+              onsubmit="return confirm('Ubah status menjadi SIAP DIPROSES (READY)?')">
+          @csrf
+          <button class="btn-primary">Tandai Siap Diproses</button>
+        </form>
+      @endif
+      {{-- READY: edit & batal langsung --}}
+      
       @if($trx->status==='ready')
         <a class="btn" href="{{ route('wms.transaksi.edit',$trx) }}">Edit</a>
         <form method="POST" action="{{ route('wms.transaksi.cancel',$trx) }}" onsubmit="return confirm('Batalkan transaksi ini?')">

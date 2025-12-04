@@ -534,7 +534,23 @@ class TransaksiController extends Controller
         return redirect()->route('wms.transaksi.show',$transaksi)->with('ok','Permintaan perubahan dikirim ke OMS.');
     }
 
-    
+    public function toReady(TransaksiH $transaksi)
+    {
+        $this->ensureSameChain($transaksi);
+
+        // hanya transaksi import Shopee yang masih NEW
+        abort_unless($transaksi->status === 'new', 403, 'Hanya transaksi dengan status NEW yang bisa diubah ke READY.');
+
+        // kalau mau paksa semua item harus termapping
+        // if ($transaksi->details()->whereNull('id_produk')->exists()) {
+        //     return back()->withErrors(['status' => 'Masih ada item yang belum termapping ke produk internal.']);
+        // }
+
+        $transaksi->update(['status' => 'ready']);
+
+        return back()->with('ok', 'Status transaksi diubah dari NEW menjadi READY.');
+    }
+
     public function toShipped(TransaksiH $transaksi)
     {
         $this->ensureSameChain($transaksi);
