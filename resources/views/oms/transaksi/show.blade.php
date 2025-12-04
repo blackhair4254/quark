@@ -256,6 +256,13 @@
                 To PROCESSING
               </button>
             </form>
+
+            <form method="POST" action="{{ route('oms.transaksi.to-cancel', $transaksi) }}">
+              @csrf
+              <button type="submit" class="btn-secondary cancel">
+                To Cancel
+              </button>
+            </form>
           @endif
 
           @if($transaksi->status === 'processing')
@@ -266,11 +273,20 @@
               </button>
             </form>
 
+            <form method="POST" action="{{ route('oms.transaksi.to-cancel', $transaksi) }}">
+              @csrf
+              <button type="submit" class="btn-secondary cancel">
+                To Cancel
+              </button>
+            </form>
+
             <form method="GET" action="{{ route('oms.transaksi.print-resi', $transaksi) }}">
               <button type="submit" class="btn-primary">
                 Cetak Resi
               </button>
             </form>
+
+            
           @endif
 
           @if($transaksi->status === 'shipped')
@@ -278,6 +294,13 @@
               @csrf
               <button type="submit" class="btn-secondary done">
                 To DONE
+              </button>
+            </form>
+
+            <form method="POST" action="{{ route('oms.transaksi.to-cancel', $transaksi) }}">
+              @csrf
+              <button type="submit" class="btn-secondary cancel">
+                To Cancel
               </button>
             </form>
 
