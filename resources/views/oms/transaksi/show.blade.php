@@ -311,6 +311,21 @@
               </button>
             </form>
           @endif
+
+          @if($transaksi->status === 'done')
+            <form method="POST" action="{{ route('oms.transaksi.to-cancel', $transaksi) }}">
+              @csrf
+              <button type="submit" class="btn-secondary cancel">
+                To Cancel
+              </button>
+            </form>
+
+            <form method="GET" action="{{ route('oms.transaksi.print-resi', $transaksi) }}">
+              <button type="submit" class="btn-primary">
+                Cetak Resi
+              </button>
+            </form>
+          @endif
         </div>
       @else
         <p style="margin-top:10px;font-size:13px;color:#6b7280">
