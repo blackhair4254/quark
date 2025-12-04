@@ -123,7 +123,7 @@ Route::middleware(['auth','role:oms'])->prefix('oms')->group(function () {
     // START INBOUND
     Route::get('inbound', [OmsInboundController::class, 'index'])->name('oms.inbound.index');
     Route::get('/inbound/{inbound}', [OmsInboundController::class, 'show'])
-        ->name('inbound.show');
+        ->name('oms.inbound.show');
     Route::post('inbound/{inbound}/accept',  [OmsInboundController::class, 'accept'])
         ->name('oms.inbound.accept');
     Route::post('inbound/{inbound}/confirm', [OmsInboundController::class, 'confirm'])
