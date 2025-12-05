@@ -223,7 +223,6 @@
                 </thead>
                 <tbody>
                 @foreach($transaksi->details as $idx => $d)
-                    @dd($d)
                     @php
                         $sku = $d->sku
                             ?? $d->sku_produk
