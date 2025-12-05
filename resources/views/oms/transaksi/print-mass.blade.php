@@ -231,7 +231,7 @@
                             ?? '-';
                         
                         $variasi = $d->variasi
-                            ?? $d->variant
+                            ?? $d->shopee_model_name
                             ?? $d->keterangan
                             ?? '-';
                     @endphp
