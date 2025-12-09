@@ -102,7 +102,8 @@ Route::middleware(['auth','role:wms'])->prefix('wms')->group(function () {
     // SHOPEE API
     Route::get('/shopee/get-order-list', [ShopeeAuthController::class, 'getOrderList']);
     Route::get('/shopee/get-order-detail', [ShopeeAuthController::class, 'getOrderDetail']);
-    Route::post('/shopee/delete-nonprocessed-new-orders', [ShopeeAuthController::class, 'deleteNonProcessedNewOrders'])->name('shopee.delete_nonprocessed_new_orders');
+    Route::match(['GET', 'POST'], '/shopee/delete-nonprocessed-new-orders',[ShopeeAuthController::class, 'deleteNonProcessedNewOrders'])->name('shopee.delete_nonprocessed_new_orders');
+
 
 
     Route::get('/mapping-produk', [ShopeeAuthController::class, 'mappingProdukIndex'])->name('mapping_produk.index');
