@@ -13,6 +13,7 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         // \App\Console\Commands\RefreshShopeeTokens::class,
+        \App\Console\Commands\DeleteNonProcessedNewOrders::class,
     ];
 
     /**
@@ -26,6 +27,12 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer()
             ->appendOutputTo(storage_path('logs/shopee_token_refresh.log'));
+
+        $schedule->command('shopee:delete-nonprocessed-new-orders')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->onOneServer()
+            ->appendOutputTo(storage_path('logs/shopee_delete_nonprocessed_new_orders.log'));
     }
 
     /**
