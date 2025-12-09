@@ -17,10 +17,7 @@ use Illuminate\Support\Facades\Auth;
 
 class ShopeeAuthController extends Controller
 {
-    /**
-     * GET /shopee/get-access-token?code=...&shop_id=123   (atau pakai main_account_id=...)
-     * Mengembalikan response mentah dari Shopee (text/plain).
-     */
+    
     public function getAccessToken(Request $request)
     {
         // ==== Ambil dari .env (dengan fallback bila perlu) ====
@@ -98,7 +95,7 @@ class ShopeeAuthController extends Controller
         // 2) kalau belum ada, coba by chain_link (fallback lama)
         if (!$row) {
             $chainLink = (string) $request->query('chain_link', "shop:{$shopId}");
-            $row = \App\Models\ShopeeApiv2Token::where('chain_link', $chainLink)
+            $row = ShopeeApiv2Token::where('chain_link', $chainLink)
                 ->orderByDesc('updated_at')
                 ->first();
         }
@@ -169,7 +166,7 @@ class ShopeeAuthController extends Controller
 
         // ==== Siapkan row jika belum ada sama sekali ====
         if (!$row) {
-            $row = new \App\Models\ShopeeApiv2Token();
+            $row = new ShopeeApiv2Token();
             $row->chain_link = "shop:{$shopId}";
             $row->shop_id    = $shopId;
         }
@@ -876,5 +873,197 @@ class ShopeeAuthController extends Controller
         return response()->json($produk);
     }
 
+    public function deleteNonProcessedNewOrders(Request $request)
+    {
+        $host       = rtrim(env('SHOPEE_HOST'), '/');
+        $partnerId  = (int) env('SHOPEE_PARTNER_ID');
+        $partnerKey = env('SHOPEE_PARTNER_KEY');
+
+        $shopId = (int) $request->query('shop_id', (int) env('SHOPEE_SHOP_ID'));
+        if (!$partnerId || !$partnerKey || !$shopId) {
+            return response()->json([
+                'error' => 'missing_param',
+                'message' => 'Wajib: SHOPEE_PARTNER_ID, SHOPEE_PARTNER_KEY, dan shop_id.',
+            ], 400);
+        }
+
+        // ambil access_token dari DB
+        $tokenRow = ShopeeApiv2Token::where('shop_id', $shopId)
+            ->orderByDesc('updated_at')
+            ->first();
+
+        if (!$tokenRow || empty($tokenRow->access_token)) {
+            return response()->json([
+                'error' => 'no_access_token',
+                'message' => "Tidak menemukan access_token untuk shop_id={$shopId}.",
+            ], 404);
+        }
+        $accessToken = (string) $tokenRow->access_token;
+
+        $chainLink = Auth::user()->chain_link;
+
+        // Ambil invoice dari transaksi_h yang status 'new' milik chain ini
+        $orderSns = TransaksiH::where('chain_link', $chainLink)
+            ->where('status', 'new')
+            ->pluck('invoice')
+            ->filter() // hilangkan null/empty
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($orderSns)) {
+            return response()->json(['message'=>'Tidak ada transaksi berstatus new.'], 200);
+        }
+
+        // Shopee limit 50 per request
+        $chunks = array_chunk($orderSns, 50);
+
+        $apiPathDetail = '/api/v2/order/get_order_detail';
+        $mergedOrders = []; // array of order objects returned
+        $rawResponses = [];
+        $errors = [];
+
+        foreach ($chunks as $chunk) {
+            $orderSnListChunk = implode(',', $chunk);
+            $timestampDetail  = time();
+            $baseStringDetail = $partnerId . $apiPathDetail . $timestampDetail . $accessToken . $shopId;
+            $signDetail       = hash_hmac('sha256', $baseStringDetail, $partnerKey);
+
+            $paramsDetail = [
+                'partner_id'    => $partnerId,
+                'timestamp'     => $timestampDetail,
+                'shop_id'       => $shopId,
+                'access_token'  => $accessToken,
+                'sign'          => $signDetail,
+                'order_sn_list' => $orderSnListChunk,
+            ];
+
+            try {
+                $respDetail = Http::timeout(30)->get($host . $apiPathDetail, $paramsDetail);
+            } catch (\Exception $e) {
+                $errors[] = [
+                    'type' => 'http_error',
+                    'message' => 'Gagal memanggil get_order_detail: ' . $e->getMessage(),
+                    'chunk' => $chunk,
+                ];
+                continue;
+            }
+
+            $statusDetail = $respDetail->status();
+            $jsonDetail = $respDetail->json();
+
+            $rawResponses[] = [
+                'http_status' => $statusDetail,
+                'params' => $paramsDetail,
+                'raw' => $jsonDetail,
+            ];
+
+            if (!is_array($jsonDetail)) {
+                $errors[] = [
+                    'type' => 'invalid_response',
+                    'message' => 'Respons get_order_detail bukan JSON.',
+                    'params' => $paramsDetail,
+                    'raw' => $respDetail->body(),
+                ];
+                continue;
+            }
+
+            if (!empty($jsonDetail['error'])) {
+                $errors[] = [
+                    'type' => 'shopee_error',
+                    'error' => $jsonDetail['error'],
+                    'message' => $jsonDetail['message'] ?? null,
+                    'params' => $paramsDetail,
+                    'raw' => $jsonDetail,
+                ];
+                // continue; (tetap coba baca order_list jika ada)
+            }
+
+            $orderListChunk = \Illuminate\Support\Arr::get($jsonDetail, 'response.order_list', []);
+            if (is_array($orderListChunk) && !empty($orderListChunk)) {
+                $mergedOrders = array_merge($mergedOrders, $orderListChunk);
+            }
+        }
+
+        // index by order_sn
+        $mergedBySn = [];
+        foreach ($mergedOrders as $ord) {
+            if (isset($ord['order_sn'])) {
+                $mergedBySn[$ord['order_sn']] = $ord;
+            }
+        }
+
+        // Tentukan invoice/order yang perlu dihapus:
+        // rule: hapus jika order_status !== 'PROCESSED'
+        // juga hapus kalau Shopee tidak mengembalikan order_sn (opsional: treat_not_found_as_delete)
+        $treatNotFoundAsDelete = $request->boolean('treat_not_found_as_delete', true);
+
+        $toDeleteInvoices = [];
+
+        foreach ($orderSns as $sn) {
+            if (isset($mergedBySn[$sn])) {
+                $ord = $mergedBySn[$sn];
+                $orderStatus = $ord['order_status'] ?? null;
+                // jika tidak PROCESSED -> hapus
+                if (!is_string($orderStatus) || strtoupper($orderStatus) !== 'PROCESSED') {
+                    $toDeleteInvoices[] = $sn;
+                }
+                // else = PROCESSED -> jangan delete
+            } else {
+                // tidak dikembalikan oleh Shopee
+                if ($treatNotFoundAsDelete) {
+                    $toDeleteInvoices[] = $sn;
+                }
+            }
+        }
+
+        $toDeleteInvoices = array_values(array_unique($toDeleteInvoices));
+
+        if (empty($toDeleteInvoices)) {
+            return response()->json([
+                'message' => 'Tidak ada transaksi "new" yang perlu dihapus (semua PROCESSED).',
+                'checked_count' => count($orderSns),
+                'to_delete_count' => 0,
+                'errors' => $errors,
+                'raw_responses' => $rawResponses,
+            ], 200);
+        }
+
+        // Hapus di DB: pastikan hanya hapus milik chain_link dan status 'new'
+        $deletedCount = 0;
+        $deletedInvoices = [];
+
+        DB::transaction(function () use (&$deletedCount, &$deletedInvoices, $chainLink, $toDeleteInvoices) {
+            $headers = TransaksiH::where('chain_link', $chainLink)
+                ->where('status', 'new')
+                ->whereIn('invoice', $toDeleteInvoices)
+                ->get(['id_transaksi', 'invoice']);
+
+            if ($headers->isEmpty()) {
+                return;
+            }
+
+            $ids = $headers->pluck('id_transaksi')->all();
+            $deletedInvoices = $headers->pluck('invoice')->all();
+
+            // hapus detail dulu (hindari FK)
+            TransaksiD::whereIn('id_transaksi_h', $ids)->delete();
+
+            // hapus header
+            TransaksiH::whereIn('id_transaksi', $ids)->delete();
+
+            $deletedCount = count($ids);
+        });
+
+        return response()->json([
+            'message' => 'Selesai proses pengecekan dan penghapusan.',
+            'checked_count' => count($orderSns),
+            'to_delete_count' => count($toDeleteInvoices),
+            'deleted_count' => $deletedCount,
+            'deleted_invoices' => $deletedInvoices,
+            'errors' => $errors,
+            'raw_responses' => $rawResponses,
+        ], 200);
+    }
 
 }
