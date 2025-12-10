@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\OmsLoginController;
 use App\Http\Controllers\Auth\WmsLoginController;
 use App\Http\Controllers\InboundController;
+use App\Http\Controllers\LogViewerController;
 use App\Http\Controllers\Oms\BalanceStockController as OmsBalanceStockController;
 use App\Http\Controllers\Oms\OmsInboundController;
 use App\Http\Controllers\Oms\StockController as OmsStockController;
@@ -103,14 +104,16 @@ Route::middleware(['auth','role:wms'])->prefix('wms')->group(function () {
     Route::get('/shopee/get-order-list', [ShopeeAuthController::class, 'getOrderList']);
     Route::get('/shopee/get-order-detail', [ShopeeAuthController::class, 'getOrderDetail']);
     Route::match(['GET', 'POST'], '/shopee/delete-nonprocessed-new-orders',[ShopeeAuthController::class, 'deleteNonProcessedNewOrders'])->name('shopee.delete_nonprocessed_new_orders');
-
-
-
     Route::get('/mapping-produk', [ShopeeAuthController::class, 'mappingProdukIndex'])->name('mapping_produk.index');
     Route::post('/mapping-produk', [ShopeeAuthController::class, 'mappingProdukStore'])->name('mapping_produk.store');
     Route::delete('/mapping-produk/{id}', [ShopeeAuthController::class, 'mappingProdukDestroy'])->name('mapping_produk.destroy');
     Route::get('/mapping-produk/search-produk', [ShopeeAuthController::class, 'mappingProdukSearchProduk'])->name('mapping_produk.search_produk');
     // END SHOPEE API
+
+    // LOG
+    Route::get('logs', [LogViewerController::class, 'index'])->name('wms.logs.index');
+    Route::get('logs/{key}', [LogViewerController::class, 'show'])->name('wms.logs.show');
+    // END LOG
 });
 
 // END WMS
