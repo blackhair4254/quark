@@ -22,24 +22,7 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // Contoh: jalankan cek refresh token tiap 5 menit
-        $schedule->command('shopee:refresh-tokens --buffer=300')
-            ->everyFiveMinutes()
-            ->withoutOverlapping()
-            ->onOneServer()
-            ->appendOutputTo(storage_path('logs/shopee_token_refresh.log'));
-
-        $schedule->command('shopee:delete-nonprocessed-new-orders')
-            ->everyFiveMinutes()
-            ->withoutOverlapping()
-            ->onOneServer()
-            ->appendOutputTo(storage_path('logs/shopee_delete_nonprocessed_new_orders.log'));
-
-        $schedule->command('shopee:get-order-detail')
-            ->everyMinute()
-            ->withoutOverlapping()
-            ->onOneServer()
-            ->appendOutputTo(storage_path('logs/shopee_get_order_detail.log'));
+        
     }
 
     /**
