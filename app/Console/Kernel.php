@@ -7,27 +7,33 @@ use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
 class Kernel extends ConsoleKernel
 {
-    /**
-     * Daftar command kustom (opsional).
-     * Misal: protected $commands = [\App\Console\Commands\RefreshShopeeTokens::class];
-     */
     protected $commands = [
-        // \App\Console\Commands\RefreshShopeeTokens::class,
+        \App\Console\Commands\RefreshShopeeTokens::class,
         \App\Console\Commands\DeleteNonProcessedNewOrders::class,
         \App\Console\Commands\ShopeeGetOrderDetail::class,
     ];
 
-    /**
-     * Jadwal task (scheduler) kamu.
-     */
     protected function schedule(Schedule $schedule): void
     {
-        
+        // Refresh token tiap 5 menit
+        $schedule->command('shopee:refresh-tokens', ['--buffer' => 300])
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->appendOutputTo('/home/quarkcoi/cron.log');
+
+        // Hapus transaksi NEW yang tidak PROCESSED tiap 5 menit
+        $schedule->command('shopee:delete-nonprocessed-new-orders')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->appendOutputTo('/home/quarkcoi/DeleteTransaksiShopee.log');
+
+        // Tarik order detail tiap menit
+        $schedule->command('shopee:get-order-detail')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->appendOutputTo('/home/quarkcoi/GetOrderDetailShopee.log');
     }
 
-    /**
-     * Registrasi route console dan auto-discover command.
-     */
     protected function commands(): void
     {
         $this->load(__DIR__.'/Commands');
