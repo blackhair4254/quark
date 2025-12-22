@@ -25,28 +25,12 @@ class InformasiTransaksiOmsMail extends Mailable
     {
         return $this
             ->from('quarkneuralpartikel@gmail.com', 'OMS System')
-            ->subject('Mohon Proses Transaksi ' . $this->transaksi->invoice)
-            ->view('oms.emails.informasi_transaksi');
-    }
-
-    /**
-     * Get the message envelope.
-     */
-    public function envelope(): Envelope
-    {
-        return new Envelope(
-            subject: 'Informasi Transaksi Oms Mail',
-        );
-    }
-
-    /**
-     * Get the message content definition.
-     */
-    public function content(): Content
-    {
-        return new Content(
-            view: 'view.name',
-        );
+            ->subject('Mohon Proses Transaksi ' . ($this->transaksi->invoice ?? ''))
+            ->view('oms.emails.informasi_transaksi')
+            ->with([
+                'transaksi' => $this->transaksi,
+                'details'   => $this->details,
+            ]);
     }
 
     /**
