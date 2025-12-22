@@ -327,6 +327,11 @@
             </form>
           @endif
         </div>
+
+      @else
+        <p style="margin-top:10px;font-size:13px;color:#6b7280">
+          Transaksi berstatus <strong>NEW</strong>. Anda hanya dapat melihat detail, tidak dapat mengubah status.
+        </p>
         @php
       $infoEmail = \App\Models\TransaksiInfoEmail::where(
           'id_transaksi_h', $transaksi->id_transaksi
@@ -370,11 +375,6 @@
 
       </div>
     </div>
-
-      @else
-        <p style="margin-top:10px;font-size:13px;color:#6b7280">
-          Transaksi berstatus <strong>NEW</strong>. Anda hanya dapat melihat detail, tidak dapat mengubah status.
-        </p>
       @endif
     </div>
 
