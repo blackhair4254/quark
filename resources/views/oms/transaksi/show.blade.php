@@ -338,16 +338,6 @@
       )->first();
     @endphp
 
-    <div class="card" style="margin-top:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-
-        <div>
-          <div style="font-weight:700;font-size:14px">Informasi ke WMS</div>
-          <div style="font-size:12px;color:#6b7280">
-            Kirim email agar transaksi segera diproses oleh WMS
-          </div>
-        </div>
-
         @if($infoEmail && $infoEmail->status_info_email)
           <button class="btn-secondary" disabled
             style="opacity:.6;cursor:not-allowed">
@@ -373,8 +363,6 @@
           </form>
         @endif
 
-      </div>
-    </div>
       @endif
     </div>
 
