@@ -327,6 +327,50 @@
             </form>
           @endif
         </div>
+        @php
+      $infoEmail = \App\Models\TransaksiInfoEmail::where(
+          'id_transaksi_h', $transaksi->id_transaksi
+      )->first();
+    @endphp
+
+    <div class="card" style="margin-top:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+
+        <div>
+          <div style="font-weight:700;font-size:14px">Informasi ke WMS</div>
+          <div style="font-size:12px;color:#6b7280">
+            Kirim email agar transaksi segera diproses oleh WMS
+          </div>
+        </div>
+
+        @if($infoEmail && $infoEmail->status_info_email)
+          <button class="btn-secondary" disabled
+            style="opacity:.6;cursor:not-allowed">
+            ✅ Sudah dikirim ke WMS
+          </button>
+        @else
+          <form method="POST"
+                action="{{ route('oms.transaksi.infokan-wms', $transaksi->id_transaksi) }}"
+                onsubmit="this.querySelector('button').disabled=true;">
+            @csrf
+            <button type="submit"
+              class="btn-secondary"
+              style="
+                background:#2563eb;
+                color:#fff;
+                border:none;
+                font-weight:700;
+                padding:10px 18px;
+                border-radius:12px;
+              ">
+              📧 Infokan ke WMS
+            </button>
+          </form>
+        @endif
+
+      </div>
+    </div>
+
       @else
         <p style="margin-top:10px;font-size:13px;color:#6b7280">
           Transaksi berstatus <strong>NEW</strong>. Anda hanya dapat melihat detail, tidak dapat mengubah status.

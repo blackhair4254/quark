@@ -154,6 +154,8 @@ Route::middleware(['auth','role:oms'])->prefix('oms')->group(function () {
     // Cetak resi single & massal
     Route::get('transaksi/{transaksi}/print-resi', [OmsTransaksiController::class, 'printResi'])->name('oms.transaksi.print-resi');
     Route::post('transaksi/print-resi-mass', [OmsTransaksiController::class, 'printResiMass'])->name('oms.transaksi.print-resi-mass');
+    Route::post('/oms/transaksi/{id}/infokan-wms',[OmsTransaksiController::class, 'infokanKeWms'])->name('oms.transaksi.infokan-wms');
+
     // END TRANSAKSI
 
     // START BALANCE STOCK

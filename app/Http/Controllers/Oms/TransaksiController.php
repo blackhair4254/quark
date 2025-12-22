@@ -2,16 +2,20 @@
 namespace App\Http\Controllers\Oms;
 
 use App\Http\Controllers\Controller;
+use App\Mail\InformasiTransaksiOmsMail;
+use App\Models\Account;
 use App\Models\TransaksiH;
 use App\Models\TransaksiD;
 use App\Models\Produk;
 use App\Models\Toko;
+use App\Models\TransaksiInfoEmail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use PDF;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Mail;
 
 class TransaksiController extends Controller
 {
@@ -145,6 +149,41 @@ class TransaksiController extends Controller
             'canAct' => $canAct,
         ]);
 
+    }
+
+    public function infokanKeWms($id)
+    {
+        $transaksi = TransaksiH::with('details')->findOrFail($id);
+
+        // cek sudah pernah kirim
+        $info = TransaksiInfoEmail::firstOrCreate(
+            ['id_transaksi_h' => $transaksi->id_transaksi],
+            ['status_info_email' => false]
+        );
+
+        if ($info->status_info_email) {
+            return back()->with('err', 'Email sudah pernah dikirim.');
+        }
+
+        // ambil email WMS dengan chain_link sama
+        $emails = Account::where('chain_link', $transaksi->chain_link)
+            ->where('role', 'wms')
+            ->pluck('email_pengguna')
+            ->filter()
+            ->unique()
+            ->toArray();
+
+        if (empty($emails)) {
+            return back()->with('err', 'Tidak ada akun WMS untuk chain link ini.');
+        }
+
+        Mail::to($emails)->send(
+            new InformasiTransaksiOmsMail($transaksi, $transaksi->details)
+        );
+
+        $info->update(['status_info_email' => true]);
+
+        return back()->with('ok', 'Email berhasil dikirim ke WMS.');
     }
 
     // --- existing status mutation methods (you already have them) ---
