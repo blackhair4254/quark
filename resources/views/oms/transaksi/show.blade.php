@@ -341,7 +341,7 @@
         @if($infoEmail && $infoEmail->status_info_email)
           <button class="btn-secondary" disabled
             style="opacity:.6;cursor:not-allowed">
-            ✅ Sudah dikirim ke WMS
+            ✅ Sudah Diinfo ke WMS
           </button>
         @else
           <form method="POST"
@@ -358,7 +358,7 @@
                 padding:10px 18px;
                 border-radius:12px;
               ">
-              📧 Infokan ke WMS
+              📧 Infokan Untuk Proses
             </button>
           </form>
         @endif
